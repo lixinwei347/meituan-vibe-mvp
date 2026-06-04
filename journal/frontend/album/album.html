@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>共享相册</title>
+  <link rel="stylesheet" href="album.css?v=7" />
+</head>
+<body>
+  <div class="app-shell">
+    <div class="phone">
+      <div class="status-bar"></div>
+
+    <!-- 直接从 index.html screen-14 拷贝 -->
+    <div class="screen">
+      <header class="trip-head">
+        <button class="trip-back" aria-label="返回行程卡">‹</button>
+        <h1>共享相册</h1>
+        <span class="album-user-tag" id="album-user-tag">👤 我</span>
+        <span class="photo-count" id="album-count">0张</span>
+      </header>
+
+      <div class="album-body">
+        <section class="album-upload-card">
+          <div class="album-upload-head">
+            <div class="upload-mark">☁</div>
+            <div>
+              <h2>上传到共享相册</h2>
+              <p>返回后继续查看实时行程卡</p>
+            </div>
+          </div>
+          <div class="album-source-grid">
+            <button class="album-source" id="album-pick-card" type="button">
+              <span>▧</span>
+              <strong>从相册选择</strong>
+              <em>支持多选</em>
+            </button>
+            <button class="album-source album-source--camera" id="album-camera-card" type="button">
+              <span>⌾</span>
+              <strong>拍照上传</strong>
+              <em>现场实时</em>
+            </button>
+          </div>
+        </section>
+
+        <div class="album-live-status"><span>◉</span>图片直播中 · 3 位成员正在同步照片</div>
+
+        <div class="album-title-row">
+          <h2>图片直播</h2>
+          <span>按上传时间更新</span>
+        </div>
+
+        <div class="photo-grid" id="photo-grid"></div>
+
+        <div class="album-hint"><span>◷</span>新照片上传后会自动插到顶部，并同步给所有成员</div>
+
+        <nav class="album-actions">
+          <button class="trip-tab" id="album-pick-bottom" type="button"><span>▧</span>选择相片</button>
+          <button class="trip-tab trip-tab--primary" id="album-camera-bottom" type="button"><span>⌾</span>拍照上传</button>
+        </nav>
+      </div>
+      <input class="visually-hidden" id="album-file-input" type="file" accept="image/*" multiple />
+      <input class="visually-hidden" id="album-camera-input" type="file" accept="image/*" capture="environment" />
+      <div class="safe-area"></div>
+    </div>
+  </div>
+
+  <!-- 照片预览浮层 -->
+  <div class="photo-preview-overlay hidden" id="photo-preview">
+    <button class="photo-preview-close" id="preview-close" aria-label="关闭">✕</button>
+    <button class="photo-preview-nav photo-preview-prev" id="preview-prev" aria-label="上一张">‹</button>
+    <div class="photo-preview-main">
+      <img class="photo-preview-img" id="preview-img" src="" alt="" />
+      <div class="photo-preview-info" id="preview-info"></div>
+    </div>
+    <button class="photo-preview-nav photo-preview-next" id="preview-next" aria-label="下一张">›</button>
+    <!-- 弹幕区：照片上方 -->
+    <div class="danmaku-stage" id="danmaku-stage"></div>
+    <!-- 照片 -->
+    <div class="photo-preview-main">
+      <img class="photo-preview-img" id="preview-img" src="" alt="" />
+      <div class="photo-preview-info" id="preview-info"></div>
+    </div>
+    <!-- 弹幕输入 -->
+    <div class="danmaku-input-row">
+      <input class="danmaku-input" id="preview-comment-input" type="text" placeholder="发个弹幕…" maxlength="60" />
+      <button class="danmaku-send" id="preview-comment-send" type="button">发送</button>
+    </div>
+    </div>
+  </div>
+
+  <script src="album.js?v=15"></script>
+  <script>
+    // 显示当前用户身份
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var name = params.get('userName') || '我';
+      var tag = document.getElementById('album-user-tag');
+      if (tag) tag.textContent = '👤 ' + name;
+    })();
+  </script>
+</body>
+</html>

@@ -86,6 +86,8 @@ const state = {
   loadingTimer: null,
   tripStarted: false,
   currentTripId: null,
+  roomCode: '',
+  myName: '',
   tripBarrage: ['Leo：我快到了'],
   storeComments: {
     hotpot: ['牛肉很嫩'],
@@ -236,6 +238,23 @@ let eventsBound = false;
 async function bootstrap() {
   updateViewportScale();
   if (typeof window !== 'undefined') window.addEventListener('resize', updateViewportScale);
+
+  // 从独立页面跳回时恢复状态（如 ?room=1111#13）
+  var hash = window.location.hash;
+  var params = new URLSearchParams(window.location.search);
+  var roomFromUrl = params.get('room');
+  if (roomFromUrl) {
+    state.roomCode = roomFromUrl;
+    state.currentTripId = roomFromUrl;
+  }
+  if (hash && /^#\d{2}$/.test(hash)) {
+    state.screen = hash.slice(1);
+  }
+  // 清理 URL 参数避免刷新时重复
+  if (roomFromUrl || (hash && /^#\d{2}$/.test(hash))) {
+    window.history.replaceState(null, '', window.location.pathname);
+  }
+
   bindEvents();
   syncPreferenceModel();
   render();
@@ -278,12 +297,17 @@ function bindEvents() {
       el.roomCodeInput.focus();
       return;
     }
+    state.roomCode = code;
+    state.currentTripId = code;
     state.screen = '08';
     render();
     showToast(`已加入房间 ${code}`);
   });
 
   el.saveRoomSettings.addEventListener('click', () => {
+    // 创建房间时生成 4 位房间码
+    state.roomCode = String(Math.floor(1000 + Math.random() * 9000));
+    state.currentTripId = state.roomCode;
     state.screen = '07';
     render();
   });
@@ -434,7 +458,8 @@ function bindEvents() {
     state.tripStarted = true;
     state.tripEnded = false;
     state.activeTripHistoryId = null;
-    state.currentTripId = `trip-${Date.now()}`;
+    // 房间码优先：没加入房间才用时间戳
+    state.currentTripId = state.roomCode || `trip-${Date.now()}`;
     state.screen = '13';
     render();
     showToast('行程已开始');
@@ -446,8 +471,10 @@ function bindEvents() {
   });
 
   el.openAlbum.addEventListener('click', () => {
-    state.screen = '14';
-    render();
+    // 跳转到独立的共享相册页面，用房间码做 tripId
+    const tripId = state.roomCode || state.currentTripId || 'trip001';
+    const name = state.myName || state.selectedPrefs.locationInput || '我';
+    window.location.href = `journal/frontend/album/album.html?tripId=${tripId}&userName=${encodeURIComponent(name)}`;
   });
 
   el.openCommentPanel.addEventListener('click', () => {
@@ -461,10 +488,13 @@ function bindEvents() {
     render();
   });
 
-  el.back14.addEventListener('click', () => {
-    state.screen = '13';
-    render();
-  });
+  // screen-14 已迁移到独立 album.html，保留兼容
+  if (el.back14) {
+    el.back14.addEventListener('click', () => {
+      state.screen = '13';
+      render();
+    });
+  }
 
   el.back15.addEventListener('click', () => {
     state.screen = '13';
@@ -513,12 +543,13 @@ function bindEvents() {
     stepMedia(1);
   });
 
-  el.albumPickCard.addEventListener('click', () => el.albumFileInput.click());
-  el.albumPickBottom.addEventListener('click', () => el.albumFileInput.click());
-  el.albumCameraCard.addEventListener('click', () => openCameraUpload());
-  el.albumCameraBottom.addEventListener('click', () => openCameraUpload());
-  el.albumFileInput.addEventListener('change', () => handleAlbumFiles(el.albumFileInput.files, '相册'));
-  el.albumCameraInput.addEventListener('change', () => handleAlbumFiles(el.albumCameraInput.files, '拍照'));
+  // screen-14 已迁移到独立 album.html
+  if (el.albumPickCard) el.albumPickCard.addEventListener('click', () => el.albumFileInput.click());
+  if (el.albumPickBottom) el.albumPickBottom.addEventListener('click', () => el.albumFileInput.click());
+  if (el.albumCameraCard) el.albumCameraCard.addEventListener('click', () => openCameraUpload());
+  if (el.albumCameraBottom) el.albumCameraBottom.addEventListener('click', () => openCameraUpload());
+  if (el.albumFileInput) el.albumFileInput.addEventListener('change', () => handleAlbumFiles(el.albumFileInput.files, '相册'));
+  if (el.albumCameraInput) el.albumCameraInput.addEventListener('change', () => handleAlbumFiles(el.albumCameraInput.files, '拍照'));
 
   el.publishComment.addEventListener('click', () => publishComment());
   el.screen15.addEventListener('click', (event) => {
@@ -587,13 +618,20 @@ function render() {
   el.screen05.classList.toggle('hidden', state.screen !== '05');
   el.screen06.classList.toggle('hidden', state.screen !== '06');
   el.screen07.classList.toggle('hidden', state.screen !== '07');
+  // 动态更新邀请页的房间码
+  if (state.screen === '07') {
+    const shareCode = document.getElementById('share-room-code');
+    if (shareCode && state.roomCode) {
+      shareCode.innerHTML = `<span>#</span> 房间码 ${state.roomCode}`;
+    }
+  }
   el.screen08.classList.toggle('hidden', state.screen !== '08');
   el.screen09.classList.toggle('hidden', state.screen !== '09');
   el.screen10.classList.toggle('hidden', state.screen !== '10');
   el.screen11.classList.toggle('hidden', state.screen !== '11');
   el.screen12.classList.toggle('hidden', state.screen !== '12');
   el.screen13.classList.toggle('hidden', state.screen !== '13');
-  el.screen14.classList.toggle('hidden', state.screen !== '14');
+  if (el.screen14) el.screen14.classList.toggle('hidden', state.screen !== '14');
   el.screen15.classList.toggle('hidden', state.screen !== '15');
   el.screen18.classList.toggle('hidden', state.screen !== '18');
   el.screen19.classList.toggle('hidden', state.screen !== '19');
@@ -824,7 +862,7 @@ async function deleteLiveStop(id) {
 }
 
 function renderAlbum() {
-  el.albumCount.textContent = `${state.albumPhotos.length + 14}张`;
+  if (!el.albumCount || !el.photoGrid) return; // screen-14 已迁移
   el.photoGrid.innerHTML = state.albumPhotos.map((photo) => `
     <article class="photo-card photo-card--${photo.tone}" ${photo.url ? `style="background-image: linear-gradient(180deg, rgba(255,255,255,.38), rgba(255,255,255,.76)), url('${photo.url}')"` : ''}>
       <div class="photo-card-top">
@@ -950,11 +988,11 @@ function closeEndTripDialog() {
 
 function confirmEndTrip() {
   if (state.endTripChoice === 'notebook') {
-    generateNotebookFromTrip();
+    generateNotebookFromTrip();  // 内部已调用 finishTrip({ notebookGenerated: true })
     state.showEndDialog = false;
-    state.screen = '18';
-    render();
-    showToast('AI 手帐已生成');
+    // 跳转到独立的手帐页面，用房间码做 tripId
+    const tripId = state.roomCode || state.currentTripId || 'trip001';
+    window.location.href = `journal/frontend/journal/journal.html?tripId=${tripId}`;
     return;
   }
   finishTrip({ notebookGenerated: false });
@@ -1101,9 +1139,13 @@ function renderHistory() {
   document.querySelectorAll('[data-history-trip]').forEach((button) => {
     button.addEventListener('click', () => {
       state.activeTripHistoryId = button.dataset.historyTrip;
-      if (state.notebook) state.screen = '18';
-      else state.screen = '04';
-      render();
+      if (state.notebook) {
+        const tripId = button.dataset.historyTrip || 'trip001';
+        window.location.href = `journal/frontend/journal/journal.html?tripId=${tripId}`;
+      } else {
+        state.screen = '04';
+        render();
+      }
     });
   });
 }
@@ -1785,7 +1827,7 @@ function generateInviteImage() {
   ctx.font = '900 54px sans-serif';
   ctx.fillText('周末美食路线', 72, 150);
   ctx.font = '800 30px sans-serif';
-  ctx.fillText('房间码 8273', 72, 224);
+  ctx.fillText(`房间码 ${state.roomCode || '8273'}`, 72, 224);
   ctx.fillText('周六 14:00 · 美食 · 最多5人', 72, 286);
   ctx.fillStyle = '#fff';
   roundRect(ctx, 72, 350, 606, 370, 36);

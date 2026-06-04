@@ -140,7 +140,7 @@
                 <span class="ill-badge ill-badge--food">♨</span>
                 <span class="ill-badge ill-badge--coffee">☕</span>
                 <span class="ill-badge ill-badge--pin">⌖</span>
-                <div class="share-code"><span>#</span> 房间码 8273</div>
+                <div class="share-code" id="share-room-code"><span>#</span> 房间码 8273</div>
                 <div class="share-wait">✧ 等你一起选点</div>
               </div>
 
@@ -419,57 +419,6 @@
           <div class="safe-area"></div>
         </div>
 
-        <div class="screen screen-14 hidden" data-screen="14">
-          <header class="trip-head">
-            <button class="trip-back" id="back14" aria-label="返回行程卡">‹</button>
-            <h1>共享相册</h1>
-            <span class="photo-count" id="album-count">18张</span>
-          </header>
-
-          <div class="album-body">
-            <section class="album-upload-card">
-              <div class="album-upload-head">
-                <div class="upload-mark">☁</div>
-                <div>
-                  <h2>上传到共享相册</h2>
-                  <p>返回后继续查看实时行程卡</p>
-                </div>
-              </div>
-              <div class="album-source-grid">
-                <button class="album-source" id="album-pick-card" type="button">
-                  <span>▧</span>
-                  <strong>从相册选择</strong>
-                  <em>支持多选</em>
-                </button>
-                <button class="album-source album-source--camera" id="album-camera-card" type="button">
-                  <span>⌾</span>
-                  <strong>拍照上传</strong>
-                  <em>现场实时</em>
-                </button>
-              </div>
-            </section>
-
-            <div class="album-live-status"><span>◉</span>图片直播中 · 3 位成员正在同步照片</div>
-
-            <div class="album-title-row">
-              <h2>图片直播</h2>
-              <span>按上传时间更新</span>
-            </div>
-
-            <div class="photo-grid" id="photo-grid"></div>
-
-            <div class="album-hint"><span>◷</span>新照片上传后会自动插到顶部，并同步给所有成员</div>
-
-            <nav class="album-actions">
-              <button class="trip-tab" id="album-pick-bottom" type="button"><span>▧</span>选择相片</button>
-              <button class="trip-tab trip-tab--primary" id="album-camera-bottom" type="button"><span>⌾</span>拍照上传</button>
-            </nav>
-          </div>
-          <input class="visually-hidden" id="album-file-input" type="file" accept="image/*" multiple />
-          <input class="visually-hidden" id="album-camera-input" type="file" accept="image/*" capture="environment" />
-          <div class="safe-area"></div>
-        </div>
-
         <div class="screen screen-15 hidden" data-screen="15">
           <header class="trip-head">
             <button class="trip-back" id="back15" aria-label="返回行程卡">‹</button>
@@ -720,6 +669,6 @@
       };
     </script>
     <script src="./mock-api.js?v=20260528-2"></script>
-    <script src="./app.js?v=20260528-2"></script>
+    <script src="./app.js?v=20260604-4"></script>
   </body>
 </html>

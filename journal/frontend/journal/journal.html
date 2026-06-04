@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>探店手帐</title>
+  <link rel="stylesheet" href="journal.css?v=6" />
+</head>
+<body>
+  <div class="app-shell">
+    <div class="phone">
+      <div class="status-bar"></div>
+
+      <!-- 画布视图 -->
+      <div class="screen" id="canvas-view">
+        <header class="page-head">
+          <button class="round-button" id="btn-back" aria-label="返回">‹</button>
+          <div>
+            <h2 id="journal-title">探店手帐</h2>
+            <p id="journal-subtitle">点击卡片查看故事</p>
+          </div>
+        </header>
+
+        <!-- 模板 -->
+        <div class="template-row" id="template-row">
+          <button class="template-chip active" data-template="fresh">🍃 清新</button>
+          <button class="template-chip" data-template="retro">📜 复古</button>
+          <button class="template-chip" data-template="ins">💗 ins风</button>
+        </div>
+
+        <!-- 画布（可拖拽缩放） -->
+        <div class="journal-canvas" id="journal-canvas">
+          <div class="canvas-transform" id="canvas-transform">
+            <div class="canvas-cards" id="canvas-cards"></div>
+          </div>
+          <div class="canvas-controls">
+            <button id="canvas-zoom-in" type="button" aria-label="放大">+</button>
+            <button id="canvas-zoom-out" type="button" aria-label="缩小">−</button>
+            <button id="canvas-zoom-reset" type="button" aria-label="重置">↺</button>
+          </div>
+        </div>
+
+        <nav class="canvas-actions">
+          <button class="trip-tab" id="btn-home" type="button"><span>⌂</span>首页</button>
+          <button class="trip-tab" id="btn-share" type="button"><span>↗</span>分享</button>
+          <button class="trip-tab trip-tab--primary" id="btn-save" type="button"><span>⇩</span>保存图片</button>
+        </nav>
+        <div class="safe-area"></div>
+      </div>
+
+      <!-- 卡片详情视图 -->
+      <div class="screen hidden" id="detail-view">
+        <header class="page-head">
+          <button class="round-button" id="btn-detail-back" aria-label="返回画布">‹</button>
+          <div>
+            <h2 id="detail-title">卡片详情</h2>
+            <p id="detail-subtitle"></p>
+          </div>
+        </header>
+
+        <div class="detail-scroll">
+          <div class="card-detail">
+            <article class="ai-photo-card">
+              <div class="ai-card-photo" id="detail-photo"></div>
+              <div class="ai-card-content">
+                <span class="ai-card-kicker" id="detail-kicker"></span>
+                <h3 id="detail-heading"></h3>
+                <p class="ai-card-body" id="detail-text"></p>
+                <div class="ai-tag-row" id="detail-tags"></div>
+                <div class="detail-comments" id="detail-comments"></div>
+                <div class="ai-card-foot">
+                  <small id="detail-likes"></small>
+                  <small>美团 Vibe</small>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <nav class="detail-nav">
+          <button class="trip-tab" id="btn-detail-prev" type="button"><span>‹</span>上一张</button>
+          <button class="trip-tab trip-tab--primary" id="btn-detail-next" type="button">下一张<span>›</span></button>
+        </nav>
+        <div class="safe-area"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="journal.js?v=6"></script>
+</body>
+</html>
