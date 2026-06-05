@@ -7,66 +7,6 @@ const preferenceSets = {
   fun: ['剧本杀', '密室逃脱', '电竞', '美甲美睫', '户外攀岩'],
 };
 
-const members = [
-  { name: 'Xinwei', avatar: 'X', tone: 'yellow', photo: 'food', summary: '火锅 / 不太辣 / 100以内', status: '已提交', tags: ['火锅', '西单', '少走路'] },
-  { name: 'Yuki', avatar: 'Y', tone: 'green', photo: 'dessert', summary: '粤菜 / 甜品 / 想拍照', status: '已提交', tags: ['甜品', '拍照', '清淡'] },
-  { name: 'Leo', avatar: 'L', tone: 'blue', photo: 'play', summary: '咖啡 / 少排队 / 近地铁', status: '待确认', tags: ['咖啡', '电竞', '近地铁'] },
-];
-
-const itineraryStops = [
-  {
-    id: 'hotpot',
-    number: 1,
-    name: '潮汕牛肉火锅 西单店',
-    tone: 'peach',
-    feature: '现切牛肉 / 不太辣 / 适合聚餐',
-    sales: '月售 3200+',
-    reviewBase: 467,
-    price: '人均 ¥96',
-    latest: '牛肉很嫩',
-  },
-  {
-    id: 'coffee',
-    number: 2,
-    name: '城市露台咖啡',
-    tone: 'mint',
-    feature: '露台景观 / 适合拍照 / 安静聊天',
-    sales: '月售 860+',
-    reviewBase: 214,
-    price: '人均 ¥42',
-    latest: '露台很适合拍照',
-  },
-  {
-    id: 'dessert',
-    number: 3,
-    name: '漫糖甜品工坊',
-    tone: 'pink',
-    feature: '招牌布丁 / 饭后甜品 / 可打包',
-    sales: '月售 1900+',
-    reviewBase: 301,
-    price: '人均 ¥36',
-    latest: '招牌布丁已收藏',
-  },
-  {
-    id: 'bar',
-    number: 4,
-    name: '湖畔小酒馆',
-    tone: 'yellow',
-    feature: '夜景小酌 / 适合收尾 / 可临时加站',
-    sales: '月售 740+',
-    reviewBase: 127,
-    price: '人均 ¥88',
-    latest: '适合收尾聊天',
-  },
-];
-
-const initialAlbumPhotos = [
-  { id: 'p1', title: '火锅店第一张合照', meta: 'Xinwei · 刚刚', likes: 6, tone: 'peach', badge: '新', mediaType: 'image' },
-  { id: 'p2', title: '城市露台咖啡拉花', meta: 'Yuki · 2分钟前', likes: 3, tone: 'mint', badge: '封面', mediaType: 'image' },
-  { id: 'p3', title: '甜品拼盘九宫格', meta: 'Leo · 8分钟前', likes: 8, tone: 'pink', badge: 'live', mediaType: 'image' },
-  { id: 'p4', title: '成员路上随手拍', meta: 'Mia · 12分钟前', likes: 2, tone: 'blue', badge: 'LIVE', mediaType: 'image' },
-];
-
 const state = {
   screen: '04',
   origin: null,
@@ -75,6 +15,7 @@ const state = {
   recommendations: [],
   previewIds: [],
   previewSelectedIds: [],
+  previewPoiPool: [],   // 跨 tab 的 POI 总池，用于查找已选 POI 对象
   searchResults: [],
   searchQuery: '',
   selectedIds: [],
@@ -86,15 +27,10 @@ const state = {
   loadingTimer: null,
   tripStarted: false,
   currentTripId: null,
-  tripBarrage: ['Leo：我快到了'],
-  storeComments: {
-    hotpot: ['牛肉很嫩'],
-    coffee: ['露台很适合拍照'],
-    dessert: ['招牌布丁已收藏'],
-    bar: ['适合收尾聊天'],
-  },
+  tripBarrage: [],
+  storeComments: {},
   commentTarget: 'trip',
-  albumPhotos: initialAlbumPhotos.slice(),
+  albumPhotos: [],
   likedPhotoIds: new Set(),
   historyTrips: [],
   activeTripHistoryId: null,
@@ -103,16 +39,21 @@ const state = {
     index: 0,
   },
   tripEnded: false,
+  roomCode: null,       // 真实房间码（创建/加入后写入）
+  memberId: null,       // 本人在房间里的 memberId
+  currentMembers: [],   // 房间成员列表（WS 实时更新）
+  roomMode: 'create',   // screen05 模式：'create' | 'join'
+  recommendationRequestId: 0,
   selectedPrefs: {
-    categories: ['火锅', '咖啡', '甜品', '剧本杀', '烧烤'],
-    fun: ['剧本杀', '密室逃脱', '电竞', '美甲美睫', '户外攀岩'],
-    avoid: ['香菜', '葱蒜'],
+    categories: [],
+    fun: [],
+    avoid: [],
     startHour: 18,
-    foods: ['火锅', '粤菜', '川湘菜'],
+    foods: [],
     foodsInput: '',
     avoidInput: '',
     funInput: '',
-    locationInput: '北京市西单大悦城',
+    locationInput: '',
   },
 };
 
@@ -150,6 +91,12 @@ const el = {
   createRoom: document.getElementById('create-room'),
   joinRoom: document.getElementById('join-room'),
   roomCodeInput: document.getElementById('room-code-input'),
+  roomNicknameCreate: document.getElementById('room-nickname-create'),
+  roomNicknameJoin: document.getElementById('room-nickname-join'),
+  roomPanelCreate: document.getElementById('room-panel-create'),
+  roomPanelJoin: document.getElementById('room-panel-join'),
+  roomCodeBadge: document.getElementById('room-code-badge'),
+  shareCode: document.querySelector('.share-code'),
   sendInvite: document.getElementById('send-invite'),
   addInviteFriend: document.getElementById('add-invite-friend'),
   saveRoomSettings: document.getElementById('save-room-settings'),
@@ -163,9 +110,11 @@ const el = {
   optionSheetTitle: document.getElementById('option-sheet-title'),
   optionList: document.getElementById('option-list'),
   locationInput: document.getElementById('location-input'),
+  locationAutocomplete: document.getElementById('location-autocomplete'),
   submitPrefs: document.getElementById('submit-prefs'),
   buildRoute: document.getElementById('build-route'),
   skipLoading: document.getElementById('skip-loading'),
+  aiReasonBar: document.getElementById('ai-reason-bar'),
   foodChips: document.getElementById('food-chips'),
   avoidChips: document.getElementById('avoid-chips'),
   funChips: document.getElementById('fun-chips'),
@@ -173,6 +122,9 @@ const el = {
   avoidInput: document.getElementById('avoid-input'),
   funInput: document.getElementById('fun-input'),
   memberList: document.getElementById('member-list'),
+  summaryMapVisual: document.getElementById('summary-map-visual'),
+  summaryProgressText: document.getElementById('summary-progress-text'),
+  summaryProgressAvatars: document.getElementById('summary-progress-avatars'),
   loadingDots: document.getElementById('loading-dots'),
   nextStep: document.getElementById('next-step'),
   addMore: document.getElementById('add-more'),
@@ -199,9 +151,13 @@ const el = {
   recommendationList: document.getElementById('recommendation-list'),
   routeList: document.getElementById('route-list'),
   filterRow: document.getElementById('filter-row'),
+  previewSelectedBar: document.getElementById('preview-selected-bar'),
+  previewSelectedNames: document.getElementById('preview-selected-names'),
   toast: document.getElementById('toast'),
   map11: document.getElementById('map11'),
   map12: document.getElementById('map12'),
+  liveMap13: document.getElementById('live-map13'),
+  liveMap15: document.getElementById('live-map15'),
   routeDistance: document.getElementById('route-distance'),
   poiSearch: document.getElementById('poi-search'),
   searchResults: document.getElementById('search-results'),
@@ -229,9 +185,22 @@ const el = {
 
 const map11 = createMapAdapter(el.map11, handleMapPoiClick);
 const map12 = createMapAdapter(el.map12, handleMapPoiClick);
+const liveMap13 = createMapAdapter(el.liveMap13);
+const liveMap15 = createMapAdapter(el.liveMap15);
 
 let loadingAnimationFrame = 0;
 let eventsBound = false;
+
+function shouldHydrateInitialRoutePlan(snapshot) {
+  return (
+    state.screen === snapshot.screen &&
+    state.screen === '04' &&
+    state.selectedIds.length === snapshot.selectedCount &&
+    state.selectedIds.length === 0 &&
+    state.roomCode === snapshot.roomCode &&
+    !state.tripStarted
+  );
+}
 
 async function bootstrap() {
   updateViewportScale();
@@ -240,16 +209,136 @@ async function bootstrap() {
   syncPreferenceModel();
   render();
 
+  const bootstrapSnapshot = {
+    screen: state.screen,
+    selectedCount: state.selectedIds.length,
+    roomCode: state.roomCode,
+  };
+
   try {
     state.origin = await resolveUserLocation();
     await refreshRecommendations();
-    state.routePlan = await planRoute({ origin: await ensureOrigin(), selectedIds: state.selectedIds, prefs: state.selectedPrefs, respectOrder: false });
+    const nextRoutePlan = await planRoute({ origin: await ensureOrigin(), selectedIds: state.selectedIds, prefs: state.selectedPrefs, respectOrder: false });
+    if (shouldHydrateInitialRoutePlan(bootstrapSnapshot)) {
+      state.routePlan = nextRoutePlan;
+    }
   } catch (error) {
-    console.error('初始化位置和推荐数据失败，已使用 mock 数据兜底', error);
+    console.error('初始化位置和推荐数据失败，已回退到用户上下文', error);
     state.origin = await getUserContext();
     await refreshRecommendations();
   }
   render();
+}
+
+// 高德 AutoComplete 位置联想搜索绑定
+function bindLocationAutocomplete() {
+  const input = el.locationInput;
+  const list  = el.locationAutocomplete;
+  if (!input || !list) return;
+
+  let ac = null;
+  let debounceTimer = null;
+
+  // 懒初始化 AutoComplete 插件（高德加载后才能 new）
+  function getAC() {
+    if (ac) return ac;
+    if (typeof AMap === 'undefined' || !AMap.AutoComplete) return null;
+    ac = new AMap.AutoComplete({ city: '全国', datatype: 'poi' });
+    return ac;
+  }
+
+  function showSuggestions(tips) {
+    list.innerHTML = tips.map((tip) => {
+      const name    = tip.name || '';
+      const address = tip.address || tip.district || '';
+      return `<li data-name="${name}" data-address="${address}">
+        <strong>${name}</strong>
+        ${address ? `<span>${address}</span>` : ''}
+      </li>`;
+    }).join('');
+    list.classList.add('is-open');
+
+    list.querySelectorAll('li').forEach((item) => {
+      item.addEventListener('click', () => {
+        const name = item.dataset.name;
+        const addr = item.dataset.address;
+        input.value = name;
+        state.selectedPrefs.locationInput = name;
+        // 如果 tip 带经纬度，同步更新 state.origin
+        const tip = tips.find((t) => t.name === name);
+        if (tip?.location) {
+          state.origin = {
+            lat: tip.location.lat,
+            lng: tip.location.lng,
+            name,
+            address: addr,
+          };
+        }
+        list.classList.remove('is-open');
+        list.innerHTML = '';
+      });
+    });
+  }
+
+  input.addEventListener('input', () => {
+    const q = input.value.trim();
+    state.selectedPrefs.locationInput = input.value;
+    clearTimeout(debounceTimer);
+    if (!q) {
+      list.classList.remove('is-open');
+      list.innerHTML = '';
+      return;
+    }
+    debounceTimer = setTimeout(() => {
+      const plugin = getAC();
+      if (!plugin) return;
+      plugin.search(q, (status, result) => {
+        if (status === 'complete' && result.tips?.length) {
+          showSuggestions(result.tips.slice(0, 6));
+        } else {
+          list.classList.remove('is-open');
+        }
+      });
+    }, 200);
+  });
+
+  // 点击外部关闭联想列表
+  document.addEventListener('click', (e) => {
+    if (!input.contains(e.target) && !list.contains(e.target)) {
+      list.classList.remove('is-open');
+    }
+  });
+}
+
+// 注册 WebSocket 房间事件（成员加入/偏好提交）
+function registerRoomWsListeners() {
+  if (!window.RoomApi) return;
+
+  // 加入时服务端下发当前成员快照
+  window.RoomApi.onSnapshot((msg) => {
+    if (msg.members) {
+      state.currentMembers = msg.members;
+      render();
+    }
+  });
+
+  // 有新成员加入房间
+  window.RoomApi.onMemberJoined((msg) => {
+    if (msg.members) {
+      state.currentMembers = msg.members;
+      render();
+      showToast(`${msg.member?.nickname || '新成员'} 加入了房间`);
+    }
+  });
+
+  // 有成员提交偏好
+  window.RoomApi.onMemberUpdate((msg) => {
+    if (msg.members) {
+      state.currentMembers = msg.members;
+      render();
+    }
+    if (msg.allSubmitted) showToast('所有成员已提交偏好！');
+  });
 }
 
 function bindEvents() {
@@ -257,33 +346,75 @@ function bindEvents() {
   eventsBound = true;
 
   el.openRoomModal.addEventListener('click', () => {
+    state.roomMode = 'create';
     state.screen = '05';
     render();
   });
 
   el.quickJoinRoom.addEventListener('click', () => {
+    state.roomMode = 'join';
     state.screen = '05';
     render();
   });
 
-  el.createRoom.addEventListener('click', () => {
-    state.screen = '06';
+  el.createRoom.addEventListener('click', async () => {
+    const nickname = (el.roomNicknameCreate?.value || '').trim() || '房主';
+    const avatar = nickname.charAt(0).toUpperCase();
+    if (window.RoomApi) {
+      try {
+        showToast('创建中...');
+        const roomData = await window.RoomApi.createRoom({});
+        state.roomCode = roomData.code;
+        const joinData = await window.RoomApi.joinRoom(roomData.code, { nickname, avatar });
+        state.memberId = joinData.memberId;
+        state.currentMembers = joinData.members || [];
+        registerRoomWsListeners();
+      } catch (e) {
+        console.warn('创建房间失败，使用本地 mock', e);
+        showToast('创建失败，已使用本地模式');
+      }
+    }
+    state.screen = '09';
     render();
   });
 
-  el.joinRoom.addEventListener('click', () => {
+  el.joinRoom.addEventListener('click', async () => {
     const code = el.roomCodeInput.value.trim();
     if (!/^\d{4}$/.test(code)) {
       showToast('请输入 4 位房间码');
       el.roomCodeInput.focus();
       return;
     }
-    state.screen = '08';
+    const nickname = (el.roomNicknameJoin?.value || '').trim() || '匿名';
+    // 取昵称首字母大写作为头像字符
+    const avatar = nickname.charAt(0).toUpperCase();
+    if (window.RoomApi) {
+      try {
+        showToast('加入中...');
+        const data = await window.RoomApi.joinRoom(code, { nickname, avatar });
+        state.roomCode = code;
+        state.memberId = data.memberId;
+        state.currentMembers = data.members || [];
+        registerRoomWsListeners();
+        state.screen = '09';
+        render();
+        showToast(`已加入房间 ${code}`);
+        return;
+      } catch (e) {
+        const msg = e.message === 'ROOM_NOT_FOUND' ? '房间不存在' : '加入失败，请重试';
+        showToast(msg);
+        return;
+      }
+    }
+    // 降级：无 RoomApi 时走本地 mock
+    state.roomCode = code;
+    state.screen = '09';
     render();
     showToast(`已加入房间 ${code}`);
   });
 
   el.saveRoomSettings.addEventListener('click', () => {
+    // 房间已在 screen05 创建，这里只跳到邀请页
     state.screen = '07';
     render();
   });
@@ -336,13 +467,50 @@ function bindEvents() {
     button.addEventListener('click', () => button.classList.toggle('is-on'));
   });
 
+  // 快捷位置按钮
   document.querySelectorAll('[data-location]').forEach((button) => {
     button.addEventListener('click', () => {
       el.locationInput.value = button.dataset.location;
       state.selectedPrefs.locationInput = button.dataset.location;
-      showToast('已选择 mock 位置');
+      showToast(`已选择：${button.dataset.location}`);
     });
   });
+
+  // 实时定位按钮
+  const gpsBtn = document.getElementById('use-gps-btn');
+  if (gpsBtn) {
+    gpsBtn.addEventListener('click', async () => {
+      if (!navigator.geolocation) {
+        showToast('当前浏览器不支持定位');
+        return;
+      }
+      gpsBtn.disabled = true;
+      gpsBtn.querySelector('strong').textContent = '定位中...';
+      try {
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10_000,
+            maximumAge: 30_000,
+          });
+        });
+        const { latitude: lat, longitude: lng } = pos.coords;
+        state.origin = { lat, lng, name: '当前位置', address: '实时定位结果' };
+        el.locationInput.value = `当前位置（${lat.toFixed(4)}, ${lng.toFixed(4)}）`;
+        state.selectedPrefs.locationInput = el.locationInput.value;
+        showToast('✅ 定位成功');
+      } catch (e) {
+        const msg = e.code === 1 ? '定位权限被拒绝，请在浏览器设置中允许' : '定位失败，请手动输入位置';
+        showToast(msg);
+      } finally {
+        gpsBtn.disabled = false;
+        gpsBtn.querySelector('strong').textContent = '使用实时定位';
+      }
+    });
+  }
+
+  // 高德 AutoComplete 位置联想搜索
+  bindLocationAutocomplete();
 
   document.querySelectorAll('[data-open-sheet]').forEach((row) => {
     row.addEventListener('click', () => openOptionSheet(row.dataset.openSheet));
@@ -352,8 +520,16 @@ function bindEvents() {
     if (event.target === el.optionSheet) closeOptionSheet();
   });
 
-  el.submitPrefs.addEventListener('click', () => {
+  el.submitPrefs.addEventListener('click', async () => {
     syncPreferenceModel();
+    // 若已加入房间，同步偏好到后端
+    if (window.RoomApi && window.RoomApi.memberId) {
+      try {
+        await window.RoomApi.submitPrefs({ ...state.selectedPrefs });
+      } catch (e) {
+        console.warn('偏好同步失败（继续本地流程）', e);
+      }
+    }
     state.screen = '09';
     render();
   });
@@ -383,11 +559,11 @@ function bindEvents() {
     render();
   });
   el.back08.addEventListener('click', () => {
-    state.screen = '07';
+    state.screen = '09';
     render();
   });
   el.back09.addEventListener('click', () => {
-    state.screen = '08';
+    state.screen = '05';
     render();
   });
   el.back10.addEventListener('click', () => {
@@ -401,11 +577,47 @@ function bindEvents() {
       showToast('请先选择想加入行程的店铺');
       return;
     }
-    state.routePlan = await planRoute({ origin: await ensureOrigin(), selectedIds: state.previewSelectedIds, prefs: state.selectedPrefs, respectOrder: false });
-    state.selectedIds = state.routePlan.selected.map((poi) => poi.id);
-    state.manualRouteOrder = false;
-    state.screen = '12';
-    render();
+    // 点「下一步」时才调 AI 规划路线，并显示 loading
+    el.nextStep.disabled = true;
+    el.nextStep.textContent = 'AI 规划中…';
+    try {
+      // 把跨 tab 选中的 POI 完整对象传给后端（让 AI 在这些里排序）
+      const selectedPois = state.previewSelectedIds
+        .map((id) => state.previewPoiPool.find((p) => p.id === id) || getPoiById(id))
+        .filter(Boolean);
+
+      // 先按用户当前所选渲染 screen12，避免等待 AI 时出现空白调整页
+      state.routePlan = {
+        ...(state.routePlan || {}),
+        selected: selectedPois,
+        totalDistanceLabel: state.routePlan?.totalDistanceLabel || '规划中…',
+      };
+      state.selectedIds = selectedPois.map((poi) => poi.id);
+      state.manualRouteOrder = false;
+      state.screen = '12';
+      render();
+
+      const plannedRoute = await planRoute({
+        origin: await ensureOrigin(),
+        selectedIds: selectedPois.map((p) => p.id),
+        selectedPois,           // 把完整对象传给后端，AI 只在这些里排序
+        prefs: state.selectedPrefs,
+        members: state.currentMembers,
+        respectOrder: false,
+      });
+
+      // 若 AI 返回空（异常），保留用户已选顺序
+      if (plannedRoute?.selected?.length) {
+        state.routePlan = plannedRoute;
+        state.selectedIds = plannedRoute.selected.map((poi) => poi.id);
+        render();
+      }
+    } catch (e) {
+      showToast('AI 排序失败，已保留当前顺序');
+    } finally {
+      el.nextStep.disabled = false;
+      el.nextStep.textContent = '下一步 →';
+    }
   });
 
   el.back12.addEventListener('click', () => {
@@ -424,20 +636,24 @@ function bindEvents() {
     showToast('可继续挑选更多店铺');
   });
 
-  el.confirmRoute.addEventListener('click', async () => {
-    const currentRoute = state.routePlan?.selected?.length ? state.routePlan.selected : state.selectedIds.map((id) => getPoiById(id)).filter(Boolean);
+  el.confirmRoute.addEventListener('click', () => {
+    // 直接用当前排好的路线出发，不重新调 AI
+    const currentRoute = state.routePlan?.selected?.length
+      ? state.routePlan.selected
+      : state.selectedIds.map((id) => state.previewPoiPool?.find((p) => p.id === id) || getPoiById(id)).filter(Boolean);
+    if (!currentRoute.length) {
+      showToast('请先添加至少一个地点');
+      return;
+    }
     state.selectedIds = currentRoute.map((poi) => poi.id);
-    state.routePlan = state.selectedIds.length
-      ? await planRoute({ origin: await ensureOrigin(), selectedIds: state.selectedIds, prefs: state.selectedPrefs, respectOrder: state.manualRouteOrder })
-      : { selected: [], totalDistanceLabel: '待选' };
-    state.selectedIds = state.routePlan.selected.map((poi) => poi.id);
+    state.routePlan = { ...state.routePlan, selected: currentRoute };
     state.tripStarted = true;
     state.tripEnded = false;
     state.activeTripHistoryId = null;
     state.currentTripId = `trip-${Date.now()}`;
     state.screen = '13';
     render();
-    showToast('行程已开始');
+    showToast('行程已开始 🎉');
   });
 
   el.back13.addEventListener('click', () => {
@@ -533,24 +749,57 @@ function bindEvents() {
 }
 
 async function refreshRecommendations() {
+  state.selectedPrefs.mode = state.activeFilter;
+  return requestRecommendationsForMode(state.activeFilter);
+}
+
+async function requestRecommendationsForMode(mode = state.activeFilter) {
+  state.recommendationRequestId += 1;
+  const requestId = state.recommendationRequestId;
   const origin = await ensureOrigin();
-  state.recommendations = await getPoiRecommendations({ center: origin, prefs: state.selectedPrefs });
-  state.previewIds = state.recommendations.slice(0, 3).map((poi) => poi.id);
+  const recommendations = await getPoiRecommendations({
+    center: origin,
+    prefs: {
+      ...state.selectedPrefs,
+      mode,
+    },
+    members: state.currentMembers,
+  });
+  if (requestId !== state.recommendationRequestId) {
+    return null;
+  }
+  state.activeFilter = mode;
+  state.recommendations = recommendations;
+  state.previewIds = recommendations.slice(0, 3).map((poi) => poi.id);
+  return recommendations;
 }
 
 async function applyPoiSelection(poiId, { respectOrder = false, toast = true } = {}) {
-  const poi = getPoiById(poiId);
+  // 从 pool 或 mock 里找 POI 对象
+  const poi = state.previewPoiPool?.find((p) => p.id === poiId) || getPoiById(poiId);
   const wasSelected = state.selectedIds.includes(poiId);
   toggleSelection(poiId);
   state.manualRouteOrder = respectOrder;
-  const origin = await ensureOrigin();
-  state.routePlan = await planRoute({
-    origin,
-    selectedIds: state.selectedIds,
-    prefs: state.selectedPrefs,
-    respectOrder,
-  });
-  state.selectedIds = state.routePlan.selected.map((item) => item.id);
+
+  // 本地直接更新 routePlan.selected，不再重新调 AI
+  if (!wasSelected && poi) {
+    // 添加
+    const current = state.routePlan?.selected || [];
+    if (!current.find((p) => p.id === poiId)) {
+      state.routePlan = { ...state.routePlan, selected: [...current, poi], totalDistanceLabel: '已调整' };
+    }
+    // 新 POI 也存入 pool
+    if (state.previewPoiPool && !state.previewPoiPool.find((p) => p.id === poiId)) {
+      state.previewPoiPool.push(poi);
+    }
+  } else {
+    // 移除
+    if (state.routePlan?.selected) {
+      state.routePlan.selected = state.routePlan.selected.filter((p) => p.id !== poiId);
+      state.routePlan.totalDistanceLabel = state.routePlan.selected.length ? '已调整' : '待选';
+    }
+  }
+  state.selectedIds = (state.routePlan?.selected || []).map((p) => p.id);
   renderRecommendations();
   renderRoute();
   drawMaps();
@@ -568,14 +817,20 @@ async function handleMapPoiClick(poi) {
 }
 
 async function togglePreviewPoiSelection(poiId) {
+  // screen11 仅更新勾选状态，不调 AI——等「下一步」时才规划路线
   const set = new Set(state.previewSelectedIds);
   if (set.has(poiId)) set.delete(poiId);
   else set.add(poiId);
   state.previewSelectedIds = [...set];
-  const origin = await ensureOrigin();
-  state.routePlan = state.previewSelectedIds.length
-    ? await planRoute({ origin, selectedIds: state.previewSelectedIds, prefs: state.selectedPrefs, respectOrder: false })
-    : { selected: [], totalDistanceLabel: '待选' };
+
+  // 从跨 tab 的 pool 里查找已选 POI（不依赖当前 tab 的 recommendations）
+  const selectedPois = state.previewSelectedIds
+    .map((id) => state.previewPoiPool.find((p) => p.id === id) || getPoiById(id))
+    .filter(Boolean);
+  state.routePlan = {
+    selected: selectedPois,
+    totalDistanceLabel: selectedPois.length ? '已选 ' + selectedPois.length + ' 个' : '待选',
+  };
   state.manualRouteOrder = false;
   renderRecommendations();
   drawMaps();
@@ -585,6 +840,9 @@ function render() {
   state.routePlan = state.routePlan || { selected: [] };
   el.screen04.classList.toggle('hidden', state.screen !== '04');
   el.screen05.classList.toggle('hidden', state.screen !== '05');
+  // screen05 内部面板：根据 roomMode 显示创建或加入
+  if (el.roomPanelCreate) el.roomPanelCreate.classList.toggle('hidden', state.roomMode !== 'create');
+  if (el.roomPanelJoin)   el.roomPanelJoin.classList.toggle('hidden',   state.roomMode !== 'join');
   el.screen06.classList.toggle('hidden', state.screen !== '06');
   el.screen07.classList.toggle('hidden', state.screen !== '07');
   el.screen08.classList.toggle('hidden', state.screen !== '08');
@@ -598,6 +856,17 @@ function render() {
   el.screen18.classList.toggle('hidden', state.screen !== '18');
   el.screen19.classList.toggle('hidden', state.screen !== '19');
 
+  // 更新 screen07 上的房间码展示
+  if (el.shareCode && state.roomCode) {
+    el.shareCode.innerHTML = `<span>#</span> 房间码 ${state.roomCode}`;
+  }
+  // 更新 screen09 顶栏房间号 badge
+  if (el.roomCodeBadge) {
+    el.roomCodeBadge.textContent = state.roomCode ? `# ${state.roomCode}` : '';
+  }
+
+  renderSummaryMapPins();
+  renderSummaryProgress();
   renderPreferences();
   renderMembers();
   renderLoadingDots();
@@ -615,35 +884,75 @@ function render() {
 }
 
 function getStopComment(stopId) {
-  return state.storeComments[stopId]?.at(-1) || itineraryStops.find((stop) => stop.id === stopId)?.latest || '';
+  return state.storeComments[stopId]?.at(-1) || '';
 }
 
 function getLiveStops() {
   const routeStops = state.routePlan?.selected?.length
     ? state.routePlan.selected
     : state.selectedIds.map((id) => getPoiById(id)).filter(Boolean);
-  if (!routeStops.length) return state.tripStarted ? [] : itineraryStops;
+  if (!routeStops.length) return [];
   return routeStops.map((poi, index) => normalizeLiveStop(poi, index));
 }
 
+// 根据 POI 类别推算色调（与 mock 数据中的 mood 对应）
+function poiTone(poi) {
+  if (poi.mood) return poi.mood;
+  const sub = poi.subCategory || poi.category || '';
+  if (['火锅', '烧烤', '川湘菜'].includes(sub)) return 'peach';
+  if (['咖啡', '粤菜', '日料'].includes(sub)) return 'mint';
+  if (['甜品', '美甲美睫'].includes(sub)) return 'pink';
+  if (['剧本杀', '密室逃脱', '电竞'].includes(sub)) return 'blue';
+  return 'yellow';
+}
+
+function escapeHtml(value = '') {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderPoiVisual(poi, { className = 'poi-icon', fallbackText, badgeText, showBadge = false } = {}) {
+  const mood = poi.mood || poiTone(poi);
+  const label = badgeText || poi.subCategory || poi.category || fallbackText || '地点';
+  const alt = escapeHtml(`${poi.name} 图片`);
+  if (poi.photoUrl) {
+    const safeUrl = escapeHtml(poi.photoUrl);
+    return `
+      <div class="${className} ${className}--image ${mood}">
+        <img src="${safeUrl}" alt="${alt}" loading="lazy" referrerpolicy="no-referrer" />
+        ${showBadge && label ? `<span>${escapeHtml(label)}</span>` : ''}
+      </div>
+    `;
+  }
+  return `<div class="${className} ${mood}">${escapeHtml(fallbackText || label)}</div>`;
+}
+
 function normalizeLiveStop(poi, index) {
-  const fallback = itineraryStops.find((stop) => stop.id === poi.id);
-  const sales = fallback?.sales || `月售 ${Math.max(520, Math.round(poi.rating * 420))}+`;
-  const reviewBase = fallback?.reviewBase || Math.round(poi.rating * 45 + poi.price);
+  // 月销量：优先用后端字段，否则按评分推算
+  const sales = poi.monthlySales
+    ? `月售 ${poi.monthlySales}+`
+    : `月售 ${Math.max(300, Math.round(poi.rating * 420))}+`;
+  // 评价数：优先用后端字段，否则按评分推算
+  const reviewBase = poi.reviewCount ?? Math.round(poi.rating * 50 + (poi.price || 0) / 2);
   return {
     id: poi.id,
     number: index + 1,
     name: poi.name,
-    tone: poi.mood || fallback?.tone || 'yellow',
-    meta: `${poi.rating.toFixed(1)}分 · ¥${poi.price}/人${poi.distanceLabel ? ` · 距离${poi.distanceLabel}` : ''}`,
-    tags: poi.tags?.length ? poi.tags.join(' · ') : fallback?.feature || '',
+    tone: poiTone(poi),
+    meta: `${poi.rating?.toFixed(1) ?? '—'}分 · ¥${poi.price}/人${poi.distanceLabel ? ` · 距离${poi.distanceLabel}` : ''}`,
+    tags: poi.tags?.length ? poi.tags.join(' · ') : (poi.subCategory || poi.category || ''),
     sales,
     reviewBase,
     price: `人均 ¥${poi.price}`,
     salesLine: `${sales} · 评价 ${reviewBase} 条 · 人均 ¥${poi.price}`,
-    latest: fallback?.latest || '',
+    latest: '',
     lat: poi.lat,
     lng: poi.lng,
+    photoUrl: poi.photoUrl || '',
   };
 }
 
@@ -654,9 +963,11 @@ function renderItinerary() {
     : '<div class="trip-empty">当前行程还没有点位，可返回调整页继续添加</div>';
   el.itineraryList.innerHTML = html;
   el.commentPreviewList.innerHTML = html;
-  const latestBarrage = state.tripBarrage.at(-1) || 'Leo：我快到了';
+  const latestBarrage = state.tripBarrage.at(-1) || '';
   el.tripBarrage.textContent = latestBarrage;
   el.tripBarragePreview.textContent = latestBarrage;
+  el.tripBarrage.classList.toggle('is-active', Boolean(latestBarrage));
+  el.tripBarragePreview.classList.toggle('is-active', Boolean(latestBarrage));
   renderLiveMap(stops);
   renderLiveTripTips(stops.length);
 
@@ -692,11 +1003,42 @@ function renderLiveTripTips(count) {
 }
 
 function renderLiveMap(stops) {
+  if (typeof AMap !== 'undefined') {
+    document.querySelectorAll('.screen-13 .live-map, .screen-15 .live-map').forEach((map) => {
+      map.classList.add('is-real');
+    });
+    const origin = state.origin || { lat: 39.905, lng: 116.391, name: '当前位置' };
+    const points = stops.map((stop) => ({
+      id: stop.id,
+      name: stop.name,
+      lat: stop.lat,
+      lng: stop.lng,
+    }));
+    const options = {
+      origin,
+      points,
+      selectedPoints: points,
+      hideUnselected: true,
+      routeFromOrigin: true,
+      showOriginMarker: true,
+    };
+    liveMap13.render(options);
+    liveMap15.render(options);
+    return;
+  }
+  renderLiveMapFallback(stops);
+}
+
+function renderLiveMapFallback(stops) {
+  document.querySelectorAll('.screen-13 .live-map, .screen-15 .live-map').forEach((map) => {
+    map.classList.remove('is-real');
+  });
   const maps = document.querySelectorAll('.screen-13 .live-map, .screen-15 .live-map');
   maps.forEach((map) => {
-    const polyline = map.querySelector('.route-line polyline');
-    const mePin = map.querySelector('.map-pin--me');
-    const pins = [...map.querySelectorAll('[data-live-pin]')];
+    const fallback = map.querySelector('.live-map-fallback') || map;
+    const polyline = fallback.querySelector('.route-line polyline');
+    const mePin = fallback.querySelector('.map-pin--me');
+    const pins = [...fallback.querySelectorAll('[data-live-pin]')];
     const geometry = projectLiveMap(stops);
 
     if (polyline) polyline.setAttribute('points', geometry.points);
@@ -771,14 +1113,16 @@ function renderItineraryStop(stop, index, total) {
   const count = state.storeComments[stop.id]?.length || 0;
   const reviewCount = stop.reviewBase + count;
   const salesLine = `${stop.sales} · 评价 ${reviewCount} 条 · ${stop.price}`;
+  const latestComment = getStopComment(stop.id);
   return `
     <article class="trip-stop">
       <div class="stop-number">${stop.number}</div>
-      <div class="stop-photo stop-photo--${stop.tone}">图片</div>
+      ${renderPoiVisual(stop, { className: 'stop-photo', fallbackText: '图片', badgeText: stop.tags.split(' · ')[0] || '推荐' })}
       <div class="stop-info">
         <h3>${stop.name}</h3>
         <p class="stop-feature poi-meta">${salesLine}</p>
         <p class="stop-stats poi-tags">${stop.tags}</p>
+        ${latestComment ? `<p class="stop-latest-comment">💬 ${latestComment}</p>` : ''}
       </div>
       <div class="live-stop-actions">
         <button class="nav-chip" data-nav-stop="${stop.id}" type="button"><span>⌖</span>导航</button>
@@ -824,7 +1168,7 @@ async function deleteLiveStop(id) {
 }
 
 function renderAlbum() {
-  el.albumCount.textContent = `${state.albumPhotos.length + 14}张`;
+  el.albumCount.textContent = `${state.albumPhotos.length}张`;
   el.photoGrid.innerHTML = state.albumPhotos.map((photo) => `
     <article class="photo-card photo-card--${photo.tone}" ${photo.url ? `style="background-image: linear-gradient(180deg, rgba(255,255,255,.38), rgba(255,255,255,.76)), url('${photo.url}')"` : ''}>
       <div class="photo-card-top">
@@ -986,13 +1330,33 @@ function renderEndTripDialog() {
   }
 }
 
+function formatNotebookDate(date = new Date()) {
+  const value = date instanceof Date ? date : new Date(date);
+  const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const month = value.getMonth() + 1;
+  const day = value.getDate();
+  const hours = `${value.getHours()}`.padStart(2, '0');
+  const minutes = `${value.getMinutes()}`.padStart(2, '0');
+  return `${month}月${day}日 ${weekdays[value.getDay()]} ${hours}:${minutes}`;
+}
+
+function getActiveNotebook() {
+  if (state.activeTripHistoryId) {
+    const trip = state.historyTrips.find((item) => item.id === state.activeTripHistoryId);
+    if (trip?.notebook) return trip.notebook;
+  }
+  return state.notebook;
+}
+
 function generateNotebookFromTrip() {
   const stops = getLiveStops();
   const routeTitle = stops.map((stop) => getShortStopName(stop.name)).join(' → ') || '周末美食路线';
+  const generatedAt = new Date();
   state.notebook = {
     id: `notebook-${Date.now()}`,
     title: '周末美食探店 AI 手帐',
-    date: '今天 20:48',
+    date: formatNotebookDate(generatedAt),
+    generatedAt: generatedAt.toISOString(),
     routeTitle,
     stops,
     photos: state.albumPhotos.slice(0, 6),
@@ -1007,6 +1371,7 @@ function generateNotebookFromTrip() {
 function finishTrip({ notebookGenerated }) {
   const stops = getLiveStops();
   const existingId = state.currentTripId || `trip-${Date.now()}`;
+  const notebook = notebookGenerated ? state.notebook : null;
   const history = {
     id: existingId,
     title: '周末美食探店',
@@ -1014,6 +1379,7 @@ function finishTrip({ notebookGenerated }) {
     meta: `${stops.length} 个点位 · ${state.albumPhotos.length} 张照片`,
     notebookGenerated,
     photos: state.albumPhotos.slice(0, 3),
+    notebook,
   };
   state.historyTrips = [history, ...state.historyTrips.filter((item) => item.id !== existingId)].slice(0, 5);
   state.activeTripHistoryId = existingId;
@@ -1023,11 +1389,11 @@ function finishTrip({ notebookGenerated }) {
 
 function renderNotebook() {
   if (!el.notebookCard) return;
-  if (!state.notebook) {
+  const notebook = getActiveNotebook();
+  if (!notebook) {
     el.notebookCard.innerHTML = '<div class="notebook-empty">结束行程后可生成 AI 手帐</div>';
     return;
   }
-  const notebook = state.notebook;
   el.notebookCard.className = 'notebook-card notebook-card--sheet';
   el.notebookCard.innerHTML = `
     <header class="notebook-paper-head">
@@ -1058,7 +1424,7 @@ function renderNotebook() {
     mainPhotoEl.style.backgroundImage = `url('${mainPhoto.url}')`;
   }
   if (mainPhotoEl) {
-    mainPhotoEl.innerHTML = `<button data-open-media="0" type="button"><span>${mainPhoto?.title || '火锅店第一张合照'}</span></button>`;
+    mainPhotoEl.innerHTML = `<button data-open-media="0" type="button"><span>${mainPhoto?.title || '行程封面'}</span></button>`;
   }
   el.notebookRouteList.innerHTML = notebook.stops.slice(0, 3).map((stop, index) => `
     <div class="notebook-stop">
@@ -1101,7 +1467,8 @@ function renderHistory() {
   document.querySelectorAll('[data-history-trip]').forEach((button) => {
     button.addEventListener('click', () => {
       state.activeTripHistoryId = button.dataset.historyTrip;
-      if (state.notebook) state.screen = '18';
+      const trip = state.historyTrips.find((item) => item.id === state.activeTripHistoryId);
+      if (trip?.notebook) state.screen = '18';
       else state.screen = '04';
       render();
     });
@@ -1127,16 +1494,18 @@ function renderHistoryCards({ compact = false, limit = Infinity } = {}) {
 }
 
 function openMediaViewer(index) {
-  if (!state.notebook?.photos?.length) return;
-  state.mediaViewer.index = Math.max(0, Math.min(index, state.notebook.photos.length - 1));
+  const notebook = getActiveNotebook();
+  if (!notebook?.photos?.length) return;
+  state.mediaViewer.index = Math.max(0, Math.min(index, notebook.photos.length - 1));
   state.screen = '19';
   renderMediaViewer();
   render();
 }
 
 function renderMediaViewer() {
-  if (!state.notebook?.photos?.length || !el.mediaViewerContent) return;
-  const photo = state.notebook.photos[state.mediaViewer.index];
+  const notebook = getActiveNotebook();
+  if (!notebook?.photos?.length || !el.mediaViewerContent) return;
+  const photo = notebook.photos[state.mediaViewer.index];
   el.mediaViewerContent.className = `media-viewer-content media-viewer-content--${photo.tone}`;
   el.mediaViewerContent.style.backgroundImage = photo.url
     ? `linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.28)), url('${photo.url}')`
@@ -1147,14 +1516,15 @@ function renderMediaViewer() {
 }
 
 function stepMedia(direction) {
-  if (!state.notebook?.photos?.length) return;
-  const length = state.notebook.photos.length;
+  const notebook = getActiveNotebook();
+  if (!notebook?.photos?.length) return;
+  const length = notebook.photos.length;
   state.mediaViewer.index = (state.mediaViewer.index + direction + length) % length;
   renderMediaViewer();
 }
 
 async function shareNotebook() {
-  if (!state.notebook) return;
+  if (!getActiveNotebook()) return;
   const dataUrl = createNotebookShareImage();
   try {
     const blob = await (await fetch(dataUrl)).blob();
@@ -1171,7 +1541,7 @@ async function shareNotebook() {
 }
 
 function saveNotebookImage() {
-  if (!state.notebook) return;
+  if (!getActiveNotebook()) return;
   downloadDataUrl(createNotebookShareImage(), 'meituan-ai-notebook.png');
   showToast('已保存手帐图片');
 }
@@ -1184,6 +1554,8 @@ function downloadDataUrl(dataUrl, filename) {
 }
 
 function createNotebookShareImage() {
+  const notebook = getActiveNotebook();
+  if (!notebook) return '';
   const canvas = document.createElement('canvas');
   canvas.width = 1080;
   canvas.height = 1680;
@@ -1221,11 +1593,11 @@ function createNotebookShareImage() {
   ctx.fill();
   ctx.fillStyle = '#111';
   ctx.font = '900 46px "PingFang SC", sans-serif';
-  ctx.fillText(state.notebook.routeTitle || '今日路线', 604, 238);
+  ctx.fillText(notebook.routeTitle || '今日路线', 604, 238);
 
-  drawPolaroid(ctx, 126, 330, 384, 330, '#ffe2d2', state.notebook.photos[0]?.title || '共享相册');
-  drawPolaroid(ctx, 582, 885, 314, 250, '#dff4ea', state.notebook.photos[1]?.title || '精选照片');
-  drawPolaroid(ctx, 574, 1178, 304, 238, '#fbe1ec', state.notebook.photos[2]?.title || '成员合照');
+  drawPolaroid(ctx, 126, 330, 384, 330, '#ffe2d2', notebook.photos[0]?.title || '共享相册');
+  drawPolaroid(ctx, 582, 885, 314, 250, '#dff4ea', notebook.photos[1]?.title || '精选照片');
+  drawPolaroid(ctx, 574, 1178, 304, 238, '#fbe1ec', notebook.photos[2]?.title || '成员合照');
 
   ctx.save();
   ctx.translate(658, 388);
@@ -1237,7 +1609,7 @@ function createNotebookShareImage() {
   ctx.fillText('路线亮点', 26, 20);
   ctx.restore();
 
-  state.notebook.stops.slice(0, 4).forEach((stop, index) => {
+  notebook.stops.slice(0, 4).forEach((stop, index) => {
     const x = index < 2 ? 620 : 116;
     const y = index < 2 ? 500 + index * 176 : 840 + (index - 2) * 238;
     ctx.fillStyle = '#111';
@@ -1252,7 +1624,7 @@ function createNotebookShareImage() {
     wrapCanvasText(ctx, getStopComment(stop.id) || stop.tags || '今天这站很适合朋友一起去', x, y + 140, 360, 38, 2);
   });
 
-  state.notebook.tripComments.slice(-2).forEach((text, index) => {
+  notebook.tripComments.slice(-2).forEach((text, index) => {
     ctx.fillStyle = '#111';
     ctx.font = '800 28px "PingFang SC", sans-serif';
     wrapCanvasText(ctx, text.replace(/^我：/, ''), 126, 1380 + index * 70, 340, 38, 2);
@@ -1345,7 +1717,7 @@ function syncPreferenceModel() {
 
   const foods = [...new Set([...state.selectedPrefs.foods, ...tokenize(state.selectedPrefs.foodsInput)])];
   const avoid = [...new Set([...state.selectedPrefs.avoid, ...tokenize(state.selectedPrefs.avoidInput)])];
-  const fun = [...new Set([...preferenceSets.fun, ...tokenize(state.selectedPrefs.funInput)])];
+  const fun = [...new Set([...state.selectedPrefs.fun, ...tokenize(state.selectedPrefs.funInput)])];
 
   state.selectedPrefs.categories = foods;
   state.selectedPrefs.avoid = avoid;
@@ -1379,24 +1751,79 @@ function bindManualChipInput(input, group, inputField) {
   });
 }
 
+// screen09 地图卡片成员 pin（用真实成员，无成员时隐藏）
+function renderSummaryMapPins() {
+  if (!el.summaryMapVisual) return;
+  // 清除旧 pin（保留 summary-route-line）
+  el.summaryMapVisual.querySelectorAll('.summary-pin').forEach((p) => p.remove());
+
+  const list = state.currentMembers.length ? state.currentMembers : [];
+  if (!list.length) return;
+
+  // pin 样式类循环（最多 3 种颜色）
+  const pinClasses = ['summary-pin--home', 'summary-pin--food', 'summary-pin--play'];
+  list.slice(0, 5).forEach((member, i) => {
+    const pin = document.createElement('span');
+    pin.className = `summary-pin ${pinClasses[i % pinClasses.length]}`;
+    pin.textContent = member.avatar || member.nickname?.charAt(0) || '?';
+    el.summaryMapVisual.prepend(pin);
+  });
+}
+
+function renderSummaryProgress() {
+  if (!el.summaryProgressText || !el.summaryProgressAvatars) return;
+
+  const list = state.currentMembers;
+  const submitted = list.filter((member) => member.status === 'submitted' || member.status === '已提交').length;
+  const total = list.length;
+
+  el.summaryProgressText.textContent = total ? `${submitted}/${total} 人已提交偏好` : '等待成员加入';
+  el.summaryProgressAvatars.innerHTML = list.slice(0, 5).map((member, index) => {
+    const tone = member.memberId
+      ? (member.memberId === state.memberId ? 'black' : 'green')
+      : ['black', 'green', 'orange'][index % 3];
+    return `<span class="avatar-dot ${tone}"></span>`;
+  }).join('');
+}
+
 function renderMembers() {
-  el.memberList.innerHTML = members
-    .map(
-      (member, index) => `
-        <article class="member-card member-card--status member-card--${member.photo} ${index === 0 ? 'is-owner' : ''}">
+  const list = state.currentMembers;
+  el.memberList.innerHTML = list
+    .map((member, index) => {
+      const isSelf    = member.memberId === state.memberId;
+      const name      = member.nickname || '未命名成员';
+      const avatarCh  = member.avatar;
+      const tone      = isSelf ? 'yellow' : 'blue';
+      const photo     = 'food';
+      const statusRaw = member.status;
+      const statusCN  = statusRaw === 'submitted' ? '已提交' : (statusRaw === '已提交' ? '已提交' : '待确认');
+      const summary   = member.prefSummary || (statusCN === '已提交' ? '点击修改偏好 →' : '点击填写偏好 →');
+      const tags      = [];
+      const selfClass = isSelf ? ' member-card--self' : '';
+      const selfAttr  = isSelf ? ' data-self="true"' : '';
+      const metaStyle = isSelf && statusCN === '已提交' ? ' style="color:#28b978;font-weight:600"' : '';
+      return `
+        <article class="member-card member-card--status member-card--${photo}${selfClass} ${index === 0 ? 'is-owner' : ''}"${selfAttr}>
           <div class="member-photo">
-            <span class="avatar ${member.tone}">${member.avatar}</span>
+            <span class="avatar ${tone}">${avatarCh}</span>
           </div>
           <div>
-            <div class="member-name">${member.name}${index === 0 ? '<em>房主</em>' : ''}</div>
-            <div class="member-meta">${member.summary}</div>
-            <div class="member-pref-tags">${member.tags.map((tag) => `<span>${tag}</span>`).join('')}</div>
+            <div class="member-name">${name}${isSelf ? '<em>我</em>' : (index === 0 ? '<em>房主</em>' : '')}</div>
+            <div class="member-meta"${metaStyle}>${summary}</div>
+            ${tags.length ? `<div class="member-pref-tags">${tags.map((t) => `<span>${t}</span>`).join('')}</div>` : ''}
           </div>
-          <div class="member-tag ${member.status === '已提交' ? 'member-tag--done' : 'member-tag--wait'}">${member.status}</div>
-        </article>
-      `,
-    )
+          <div class="member-tag ${statusCN === '已提交' ? 'member-tag--done' : 'member-tag--wait'}">${statusCN}</div>
+        </article>`;
+    })
     .join('');
+
+  // 点击自己的名片 → 进入偏好填写页（无论是否已提交，均可修改）
+  el.memberList.querySelectorAll('[data-self="true"]').forEach((card) => {
+    card.addEventListener('click', () => {
+      state.screen = '08';
+      render();
+    });
+  });
 }
 
 function renderLoadingDots() {
@@ -1423,20 +1850,30 @@ function startLoadingSequence() {
 async function finishLoadingSequence() {
   clearLoadingSequence();
   try {
-    if (!state.recommendations.length) {
-      await refreshRecommendations();
-    }
+    await refreshRecommendations();
     state.previewIds = (state.recommendations.length ? state.recommendations : getAllPois()).slice(0, 3).map((poi) => poi.id);
     state.previewSelectedIds = [];
+    state.previewPoiPool = [...state.recommendations];  // 初始化 pool
     state.routePlan = { selected: [], totalDistanceLabel: '待选' };
   } catch (error) {
     console.error('生成 AI 路线失败，已使用兜底推荐', error);
     state.previewIds = getAllPois().slice(0, 3).map((poi) => poi.id);
     state.previewSelectedIds = [];
+    state.previewPoiPool = [...getAllPois()];
     state.routePlan = { selected: [], totalDistanceLabel: '待选' };
   }
   state.screen = '11';
   render();
+  // 展示 AI 理由（如果后端返回了 aiReason）
+  const reason = state.routePlan?.aiReason;
+  if (el.aiReasonBar) {
+    if (reason) {
+      el.aiReasonBar.textContent = reason;
+      el.aiReasonBar.classList.add('is-visible');
+    } else {
+      el.aiReasonBar.classList.remove('is-visible');
+    }
+  }
 }
 
 function clearLoadingSequence() {
@@ -1451,10 +1888,14 @@ function renderFilters() {
 
   el.filterRow.querySelectorAll('[data-filter]').forEach((button) => {
       button.addEventListener('click', async () => {
-        state.activeFilter = button.dataset.filter;
-        state.selectedPrefs.mode = state.activeFilter;
-        state.recommendations = await getPoiRecommendations({ center: await ensureOrigin(), prefs: state.selectedPrefs });
-        state.previewIds = state.recommendations.slice(0, 3).map((poi) => poi.id);
+        const nextMode = button.dataset.filter;
+        state.activeFilter = nextMode;
+        renderFilters();
+        const recommendations = await requestRecommendationsForMode(nextMode);
+        if (!recommendations) return;
+        // 把新 tab 的 POI 合并进总池（不清空已选）
+        const poolIds = new Set(state.previewPoiPool.map((p) => p.id));
+        state.recommendations.forEach((p) => { if (!poolIds.has(p.id)) state.previewPoiPool.push(p); });
         renderFilters();
         renderRecommendations();
         drawMaps();
@@ -1502,7 +1943,7 @@ function renderSearchItem(poi) {
 
 function renderRecommendations() {
   const items = state.screen === '11'
-    ? state.recommendations.slice(0, 3)
+    ? state.recommendations          // 显示当前 tab 全部结果（不限3条）
     : state.recommendations.length
       ? state.recommendations
       : getAllPois().slice(0, 5);
@@ -1511,7 +1952,7 @@ function renderRecommendations() {
       const checked = state.screen === '11' ? state.previewSelectedIds.includes(poi.id) : state.selectedIds.includes(poi.id);
       return `
         <article class="poi-card ${checked ? 'is-selected' : ''}" data-poi-id="${poi.id}">
-          <div class="poi-icon ${poi.mood}">${poi.subCategory}</div>
+          ${renderPoiVisual(poi, { className: 'poi-icon', fallbackText: poi.subCategory || '地点' })}
           <div>
             <h3 class="poi-title">${poi.name}</h3>
             <div class="poi-meta">${poi.rating.toFixed(1)}分 · ¥${poi.price}/人 · 距离${poi.distanceLabel || formatDistanceApprox(poi)}</div>
@@ -1534,25 +1975,54 @@ function renderRecommendations() {
   });
 
   el.routeDistance.textContent = state.screen === '11' && !state.previewSelectedIds.length ? '待选' : (state.routePlan?.totalDistanceLabel || '3.6km');
+
+  // 更新已选悬浮条
+  if (state.screen === '11' && el.previewSelectedBar && el.previewSelectedNames) {
+    const selectedPois = state.previewSelectedIds
+      .map((id) => state.previewPoiPool.find((p) => p.id === id) || getPoiById(id))
+      .filter(Boolean);
+    if (selectedPois.length) {
+      el.previewSelectedNames.innerHTML = `<strong>已选 ${selectedPois.length} 个：</strong>${selectedPois.map((p) => p.name).join('、')}`;
+      el.previewSelectedBar.classList.add('is-visible');
+    } else {
+      el.previewSelectedBar.classList.remove('is-visible');
+    }
+  } else if (el.previewSelectedBar) {
+    el.previewSelectedBar.classList.remove('is-visible');
+  }
 }
 
 function renderRoute() {
-  const selected = state.routePlan?.selected?.length ? state.routePlan.selected : state.selectedIds.map((id) => getPoiById(id)).filter(Boolean);
+  const selected = state.routePlan?.selected?.length
+    ? state.routePlan.selected
+    : state.selectedIds.map((id) => getPoiById(id) || state.previewPoiPool?.find((p) => p.id === id)).filter(Boolean);
+
   el.routeList.innerHTML = selected
     .map((poi, index) => {
-      const num = index + 1;
+      const mood = poi.mood || 'yellow';
+      const rating = poi.rating ? poi.rating.toFixed(1) : '—';
+      const price  = poi.price ? `¥${poi.price}/人` : '价格待定';
+      // 过滤掉纯地址标签（高德返回的 tags 可能是地址），只保留语义标签
+      const meaningfulTags = (poi.tags || []).filter((t) => t && t.length < 15 && !/^\d|市$|区$|路\d|层$/.test(t));
+      const tagsHtml = meaningfulTags.length
+        ? meaningfulTags.join(' · ')
+        : (poi.subCategory || poi.category || '');
+      // 距离信息
+      const distInfo = poi.distanceLabel ? `距起点 ${poi.distanceLabel}` : '';
+
       return `
         <article class="route-card" data-route-id="${poi.id}" draggable="true">
-          <div class="poi-icon ${poi.mood}">图片</div>
-          <div>
+          <div class="route-num">${index + 1}</div>
+          ${renderPoiVisual({ ...poi, mood }, { className: 'poi-icon', fallbackText: poi.subCategory || '地点' })}
+          <div class="route-info">
             <h3 class="poi-title">${poi.name}</h3>
-            <div class="poi-meta">${poi.eta}:00 · ${poi.rating.toFixed(1)}分 · ¥${poi.price}/人</div>
-            <div class="poi-tags">${poi.tags.join(' · ')}</div>
+            <div class="poi-meta">${rating}分 · ${price}${distInfo ? ' · ' + distInfo : ''}</div>
+            ${tagsHtml ? `<div class="poi-tags">${tagsHtml}</div>` : ''}
           </div>
           <div class="route-actions">
             <div class="drag-handle">⋮⋮</div>
-            <button class="route-move" data-move-up="${poi.id}">↑</button>
-            <button class="route-move" data-move-down="${poi.id}">↓</button>
+            <button class="route-move" data-move-up="${poi.id}" aria-label="上移">↑</button>
+            <button class="route-move" data-move-down="${poi.id}" aria-label="下移">↓</button>
             <button class="route-delete" data-delete-route="${poi.id}" aria-label="删除 ${poi.name}">×</button>
           </div>
         </article>
@@ -1584,7 +2054,11 @@ function bindRouteDnD() {
       next.splice(toIndex, 0, next.splice(fromIndex, 1)[0]);
       state.selectedIds = next;
       state.manualRouteOrder = true;
-      state.routePlan = await planRoute({ origin: await ensureOrigin(), selectedIds: state.selectedIds, prefs: state.selectedPrefs, respectOrder: true });
+      // 本地重排 selected，不重新调 AI/高德
+      if (state.routePlan?.selected?.length) {
+        const pool = [...(state.previewPoiPool || []), ...(state.routePlan.selected || [])];
+        state.routePlan.selected = next.map((id) => pool.find((p) => p.id === id)).filter(Boolean);
+      }
       renderRoute();
       drawMaps();
       showToast('顺序已调整');
@@ -1609,7 +2083,11 @@ function bindRouteMoves() {
       }
       state.selectedIds = next;
       state.manualRouteOrder = true;
-      state.routePlan = await planRoute({ origin: await ensureOrigin(), selectedIds: state.selectedIds, prefs: state.selectedPrefs, respectOrder: true });
+      // 本地重排，不重新调 AI
+      if (state.routePlan?.selected?.length) {
+        const pool = [...(state.previewPoiPool || []), ...(state.routePlan.selected || [])];
+        state.routePlan.selected = next.map((id) => pool.find((p) => p.id === id)).filter(Boolean);
+      }
       renderRoute();
       drawMaps();
     });
@@ -1621,18 +2099,21 @@ function bindRouteDeletes() {
     button.addEventListener('click', async (event) => {
       event.stopPropagation();
       const id = button.dataset.deleteRoute;
-      const poi = getPoiById(id);
-      state.selectedIds = state.selectedIds.filter((selectedId) => selectedId !== id);
-      state.previewSelectedIds = state.previewSelectedIds.filter((selectedId) => selectedId !== id);
+      const deletedPoi = state.routePlan?.selected?.find((p) => p.id === id)
+        || getPoiById(id)
+        || state.previewPoiPool?.find((p) => p.id === id);
+      state.selectedIds = state.selectedIds.filter((sid) => sid !== id);
+      state.previewSelectedIds = state.previewSelectedIds.filter((sid) => sid !== id);
       state.manualRouteOrder = false;
-      state.routePlan = state.selectedIds.length
-        ? await planRoute({ origin: await ensureOrigin(), selectedIds: state.selectedIds, prefs: state.selectedPrefs, respectOrder: false })
-        : { selected: [], totalDistanceLabel: '待选' };
-      state.selectedIds = state.routePlan.selected.map((item) => item.id);
+      // 本地直接移除，不重新调 AI
+      if (state.routePlan?.selected) {
+        state.routePlan.selected = state.routePlan.selected.filter((p) => p.id !== id);
+        state.routePlan.totalDistanceLabel = state.routePlan.selected.length ? '已调整' : '待选';
+      }
       renderRoute();
       renderRecommendations();
       drawMaps();
-      showToast(poi ? `已删除 ${poi.name}` : '已删除点位');
+      showToast(deletedPoi ? `已删除 ${deletedPoi.name}` : '已删除点位');
     });
   });
 }
@@ -1765,12 +2246,14 @@ function closeOptionSheet() {
 }
 
 async function copyInviteLink() {
-  const link = 'https://meituan.example/route-room/8273';
+  const code = state.roomCode || '----';
+  const base = typeof window !== 'undefined' && window.location ? `${window.location.origin}${window.location.pathname}` : '';
+  const link = base ? `${base}#room=${code}` : `#room=${code}`;
   try {
     await navigator.clipboard.writeText(link);
     showToast('邀请链接已复制');
   } catch (error) {
-    showToast('已生成邀请链接：8273');
+    showToast(`已生成邀请链接：${code}`);
   }
 }
 
@@ -1783,10 +2266,10 @@ function generateInviteImage() {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#111';
   ctx.font = '900 54px sans-serif';
-  ctx.fillText('周末美食路线', 72, 150);
+  ctx.fillText('待设置路线', 72, 150);
   ctx.font = '800 30px sans-serif';
-  ctx.fillText('房间码 8273', 72, 224);
-  ctx.fillText('周六 14:00 · 美食 · 最多5人', 72, 286);
+  ctx.fillText(`房间码 ${state.roomCode || '----'}`, 72, 224);
+  ctx.fillText('待设置时间 · 待设置主题 · 等待成员加入', 72, 286);
   ctx.fillStyle = '#fff';
   roundRect(ctx, 72, 350, 606, 370, 36);
   ctx.fill();
@@ -1798,12 +2281,12 @@ function generateInviteImage() {
   ctx.stroke();
   ctx.fillStyle = '#111';
   ctx.font = '900 34px sans-serif';
-  ctx.fillText('高分餐厅 + 饭后甜品', 126, 790);
+  ctx.fillText('等待成员补充偏好后生成路线亮点', 126, 790);
   ctx.font = '700 26px sans-serif';
-  ctx.fillText('扫码加入，一起补充偏好', 126, 840);
+  ctx.fillText('创建房间后分享给朋友，一起补充偏好', 126, 840);
 
   const link = document.createElement('a');
-  link.download = 'meituan-route-invite-8273.png';
+  link.download = `meituan-route-invite-${state.roomCode || 'room'}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
   showToast('已生成邀请图片卡片');
@@ -1849,7 +2332,7 @@ async function resolveUserLocation() {
       settled = true;
       resolve(await getUserContext());
     };
-    const timer = setTimeout(fallback, 900);
+    const timer = setTimeout(fallback, 10_000);
     try {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -1864,7 +2347,7 @@ async function resolveUserLocation() {
           });
         },
         fallback,
-        { enableHighAccuracy: true, timeout: 900, maximumAge: 30_000 },
+        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
       );
     } catch (error) {
       clearTimeout(timer);
@@ -1873,7 +2356,137 @@ async function resolveUserLocation() {
   });
 }
 
-function createMapAdapter(canvas, onPointClick) {
+function createMapAdapter(container, onPointClick) {
+  // 如果高德 SDK 未加载，降级到 canvas fallback
+  if (typeof AMap === 'undefined') {
+    return createCanvasMapAdapter(container, onPointClick);
+  }
+
+  const amap = new AMap.Map(container, {
+    zoom: 14,
+    center: [116.391, 39.905],
+    mapStyle: 'amap://styles/fresh',
+    resizeEnable: true,
+  });
+
+  let amapMarkers = [];
+  let amapPolyline = null;
+  let amapMemberMarkers = [];
+  let amapOriginMarker = null;
+
+  function clearOverlays() {
+    if (amapMarkers.length) { amap.remove(amapMarkers); amapMarkers = []; }
+    if (amapPolyline) { amap.remove(amapPolyline); amapPolyline = null; }
+    if (amapMemberMarkers.length) { amap.remove(amapMemberMarkers); amapMemberMarkers = []; }
+    if (amapOriginMarker) { amap.remove(amapOriginMarker); amapOriginMarker = null; }
+  }
+
+  // 成员头像标记（showMemberRoutes 时展示，用真实成员）
+  function drawAMapMemberRoutes(origin) {
+    // 用真实成员；若无真实成员则不显示任何 pin
+    const realMembers = state.currentMembers || [];
+    if (!realMembers.length) return { lat: origin.lat, lng: origin.lng };
+
+    const colors = ['#ff8a1f', '#28b978', '#8a63df', '#3b82f6', '#ec4899'];
+    const spread = [
+      { dlat: +0.0038, dlng: -0.0062 },
+      { dlat: -0.0024, dlng: -0.0044 },
+      { dlat: +0.0016, dlng: +0.0058 },
+      { dlat: +0.0030, dlng: +0.0020 },
+      { dlat: -0.0010, dlng: +0.0040 },
+    ];
+    const members = realMembers.slice(0, 5).map((m, i) => ({
+      lat: origin.lat + spread[i].dlat,
+      lng: origin.lng + spread[i].dlng,
+      name: m.avatar || m.nickname?.charAt(0) || '?',
+      color: colors[i % colors.length],
+    }));
+    members.forEach((m) => {
+      const marker = new AMap.Marker({
+        position: [m.lng, m.lat],
+        content: `<div style="width:28px;height:28px;border-radius:50%;background:${m.color};color:#fff;font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.2)">${m.name}</div>`,
+        anchor: 'center',
+      });
+      amapMemberMarkers.push(marker);
+    });
+    amap.add(amapMemberMarkers);
+    // 返回中心汇聚点（取均值）
+    return {
+      lat: members.reduce((s, m) => s + m.lat, 0) / members.length,
+      lng: members.reduce((s, m) => s + m.lng, 0) / members.length,
+    };
+  }
+
+  return {
+    render({ origin, points = [], selectedPoints = [], hideUnselected = false, showMemberRoutes = false, routeFromOrigin = true, showOriginMarker = false }) {
+      clearOverlays();
+      const safeOrigin = origin || { lat: 39.905, lng: 116.391 };
+      amap.setCenter([safeOrigin.lng, safeOrigin.lat]);
+
+      if (showOriginMarker) {
+        amapOriginMarker = new AMap.Marker({
+          position: [safeOrigin.lng, safeOrigin.lat],
+          content: '<div style="width:22px;height:22px;border-radius:50%;background:#197cff;color:#fff;font-size:10px;font-weight:900;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.22)">我</div>',
+          anchor: 'center',
+          zIndex: 140,
+        });
+        amap.add(amapOriginMarker);
+      }
+
+      // 成员路线（汇聚动画）
+      let hub = null;
+      if (showMemberRoutes) {
+        hub = drawAMapMemberRoutes(safeOrigin);
+      }
+
+      // 路线折线
+      const routeStart = routeFromOrigin ? safeOrigin : (showMemberRoutes ? hub : null);
+      if (selectedPoints.length >= 1) {
+        const pathPoints = routeStart ? [routeStart, ...selectedPoints] : selectedPoints;
+        if (pathPoints.length >= 2) {
+          amapPolyline = new AMap.Polyline({
+            path: pathPoints.map((p) => [p.lng, p.lat]),
+            strokeColor: '#ff5a22',
+            strokeWeight: 4,
+            strokeOpacity: 0.9,
+            lineJoin: 'round',
+            lineCap: 'round',
+          });
+          amap.add(amapPolyline);
+        }
+      }
+
+      // POI 标记
+      const visiblePoints = hideUnselected ? selectedPoints : points;
+      visiblePoints.forEach((point, index) => {
+        const isSelected = selectedPoints.some((p) => p.id === point.id);
+        const bg = isSelected ? '#ff5a22' : '#fff';
+        const color = isSelected ? '#fff' : '#333';
+        const border = isSelected ? '#ff5a22' : '#ddd';
+        const marker = new AMap.Marker({
+          position: [point.lng, point.lat],
+          content: `<div style="background:${bg};color:${color};border:1.5px solid ${border};padding:3px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.15)">${index + 1}. ${point.name}</div>`,
+          anchor: 'bottom-center',
+          zIndex: isSelected ? 120 : 100,
+        });
+        marker.on('click', () => { if (typeof onPointClick === 'function') onPointClick(point); });
+        amapMarkers.push(marker);
+      });
+      if (amapMarkers.length) {
+        amap.add(amapMarkers);
+        const fitOverlays = [
+          ...(showOriginMarker && amapOriginMarker ? [amapOriginMarker] : []),
+          ...amapMarkers,
+          ...(amapPolyline ? [amapPolyline] : []),
+        ];
+        if (fitOverlays.length > 1) amap.setFitView(fitOverlays, false, [30, 30, 30, 30]);
+      }
+    },
+  };
+}
+
+// Canvas fallback（高德未加载时兜底）
+function createCanvasMapAdapter(canvas, onPointClick) {
   const ctx = canvas.getContext('2d');
   const size = { width: canvas.width, height: canvas.height };
   const latRange = 0.012;
@@ -1932,11 +2545,24 @@ function createMapAdapter(canvas, onPointClick) {
   }
 
   function getMemberPoints(origin) {
-    return [
-      { lat: origin.lat + 0.0038, lng: origin.lng - 0.0062, name: 'X', fill: '#ff8a1f', glow: 'rgba(255, 138, 31, 0.24)' },
-      { lat: origin.lat - 0.0024, lng: origin.lng - 0.0044, name: 'Y', fill: '#28b978', glow: 'rgba(40, 185, 120, 0.24)' },
-      { lat: origin.lat + 0.0016, lng: origin.lng + 0.0058, name: 'L', fill: '#8a63df', glow: 'rgba(138, 99, 223, 0.24)' },
+    const realMembers = state.currentMembers || [];
+    if (!realMembers.length) return [];
+    const fills  = ['#ff8a1f', '#28b978', '#8a63df', '#3b82f6', '#ec4899'];
+    const glows  = ['rgba(255,138,31,.24)', 'rgba(40,185,120,.24)', 'rgba(138,99,223,.24)', 'rgba(59,130,246,.24)', 'rgba(236,72,153,.24)'];
+    const spread = [
+      { dlat: +0.0038, dlng: -0.0062 },
+      { dlat: -0.0024, dlng: -0.0044 },
+      { dlat: +0.0016, dlng: +0.0058 },
+      { dlat: +0.0030, dlng: +0.0020 },
+      { dlat: -0.0010, dlng: +0.0040 },
     ];
+    return realMembers.slice(0, 5).map((m, i) => ({
+      lat: origin.lat + spread[i].dlat,
+      lng: origin.lng + spread[i].dlng,
+      name: m.avatar || m.nickname?.charAt(0) || '?',
+      fill: fills[i % fills.length],
+      glow: glows[i % glows.length],
+    }));
   }
 
   function getCenterPoint(points) {
@@ -1948,9 +2574,8 @@ function createMapAdapter(canvas, onPointClick) {
   }
 
   function drawMemberRoutes(origin) {
-    const memberPoints = [
-      ...getMemberPoints(origin).sort((a, b) => a.lng - b.lng),
-    ];
+    const memberPoints = getMemberPoints(origin).sort((a, b) => a.lng - b.lng);
+    if (!memberPoints.length) return origin; // 无真实成员时跳过
     const hub = getCenterPoint(memberPoints);
     const memberCoords = memberPoints.map((member) => ({ ...project(member, origin), member }));
     ctx.strokeStyle = 'rgba(255, 90, 34, 0.52)';

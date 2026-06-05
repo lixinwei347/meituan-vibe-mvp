@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>美团黑客松路线 MVP</title>
     <link rel="stylesheet" href="./styles.css?v=20260528-2" />
+    <link rel="stylesheet" href="./route-patch.css?v=20260601-1" />
   </head>
   <body>
     <main class="app-shell">
@@ -30,9 +31,9 @@
             <h2>一起决定去哪吃、去哪玩</h2>
             <p>把朋友拉进同一个房间，收集位置和偏好后，AI 会自动串联顺路的店铺。</p>
             <div class="friend-row">
-              <span>林</span>
-              <span>雯</span>
-              <span>杰</span>
+              <span>待</span>
+              <span>邀</span>
+              <span>请</span>
               <span>+</span>
             </div>
             <div class="home-history">
@@ -51,16 +52,35 @@
         <div class="screen screen-05 hidden" data-screen="05">
           <div class="modal-backdrop modal-backdrop--map">
             <button class="floating-back" id="back05" aria-label="返回">‹</button>
-            <section class="room-modal room-modal--sheet">
+
+            <!-- 创建模式 -->
+            <section class="room-modal room-modal--sheet" id="room-panel-create">
               <div class="modal-handle"></div>
-              <h2>多人共创行程</h2>
-              <p>邀请好友一起填位置和偏好，AI 生成更顺路的美食/游玩路线。</p>
-              <button class="room-action room-action--primary" id="create-room"><span class="plus-dot">+</span>创建新房间</button>
+              <h2>发起多人共创</h2>
+              <p>创建房间，邀请好友加入，AI 自动生成顺路路线。</p>
+              <div class="room-nickname-row">
+                <span>✎</span>
+                <input id="room-nickname-create" maxlength="12" placeholder="你的昵称" />
+              </div>
+              <button class="room-action room-action--primary" id="create-room">
+                <span class="plus-dot">+</span>创建房间
+              </button>
+            </section>
+
+            <!-- 加入模式 -->
+            <section class="room-modal room-modal--sheet hidden" id="room-panel-join">
+              <div class="modal-handle"></div>
+              <h2>加入房间</h2>
+              <p>输入朋友分享的房间码，填写偏好后 AI 一起规划路线。</p>
+              <div class="room-nickname-row">
+                <span>✎</span>
+                <input id="room-nickname-join" maxlength="12" placeholder="你的昵称" />
+              </div>
               <div class="room-code-row">
                 <span>#</span>
-                <input id="room-code-input" inputmode="numeric" maxlength="4" placeholder="输入房间码加入" />
-                <button id="join-room">加入</button>
+                <input id="room-code-input" inputmode="numeric" maxlength="4" placeholder="4 位房间码" />
               </div>
+              <button class="room-action room-action--primary" id="join-room">加入房间</button>
             </section>
           </div>
         </div>
@@ -140,31 +160,31 @@
                 <span class="ill-badge ill-badge--food">♨</span>
                 <span class="ill-badge ill-badge--coffee">☕</span>
                 <span class="ill-badge ill-badge--pin">⌖</span>
-                <div class="share-code"><span>#</span> 房间码 8273</div>
-                <div class="share-wait">✧ 等你一起选点</div>
+                <div class="share-code"><span>#</span> 房间码 ----</div>
+                <div class="share-wait">✧ 等待成员加入后一起选点</div>
               </div>
 
-              <div class="share-status">多人共创 · 待加入</div>
-              <h2>周末美食路线</h2>
+              <div class="share-status">多人共创 · 待创建</div>
+              <h2>待设置路线</h2>
               <div class="share-chip-row">
-                <span>◷ 周六 14:00</span>
-                <span>♨ 美食</span>
-                <span>♙ 最多5人</span>
+                <span>◷ 待设置时间</span>
+                <span>✦ 待设置主题</span>
+                <span>♙ 等待成员加入</span>
               </div>
               <div class="share-member-row">
                 <i></i><i></i><button class="invite-plus" id="add-invite-friend" type="button" aria-label="邀请好友">+</button>
-                <strong>2人已加入，等你补充偏好</strong>
+                <strong>创建房间后可邀请成员填写偏好</strong>
               </div>
             </div>
 
             <div class="route-highlight-card">
               <div class="route-highlight-title">
                 <strong>路线亮点</strong>
-                <span>2 个待确认</span>
+                <span>等待成员补充偏好</span>
               </div>
               <div class="highlight-grid">
-                <div class="highlight-item highlight-item--food"><span>♨</span><strong>高分餐厅</strong></div>
-                <div class="highlight-item highlight-item--dessert"><span>☕</span><strong>饭后甜品</strong></div>
+                <div class="highlight-item highlight-item--food"><span>♨</span><strong>待生成餐饮点位</strong></div>
+                <div class="highlight-item highlight-item--dessert"><span>☕</span><strong>待生成顺路安排</strong></div>
               </div>
             </div>
 
@@ -188,15 +208,18 @@
           <div class="form-scroll form-scroll--warm">
             <section class="location-card">
               <div class="form-title">我的位置</div>
-              <button class="location-choice" data-location="北京市西单大悦城"><span>⌖</span><strong>使用实时定位</strong><em>mock</em></button>
-              <label class="location-input">
-                <span>⌕</span>
-                <input id="location-input" placeholder="输入当前位置、小区、商圈或地铁站" />
-              </label>
+              <button class="location-choice" id="use-gps-btn"><span>⌖</span><strong>使用实时定位</strong></button>
+              <div class="location-input-wrap">
+                <label class="location-input">
+                  <span>⌕</span>
+                  <input id="location-input" placeholder="输入位置、小区、商圈或地铁站" autocomplete="off" />
+                </label>
+                <ul class="location-autocomplete" id="location-autocomplete"></ul>
+              </div>
               <div class="location-suggestions">
-                <button data-location="北京市西单大悦城">西单大悦城</button>
-                <button data-location="北京市三里屯太古里">三里屯太古里</button>
-                <button data-location="北京市五道口地铁站">五道口地铁站</button>
+                <button data-location="当前位置附近">当前位置附近</button>
+                <button data-location="常去商圈">常去商圈</button>
+                <button data-location="附近地铁站">附近地铁站</button>
               </div>
             </section>
 
@@ -235,63 +258,41 @@
         <div class="screen screen-09 hidden" data-screen="09">
           <header class="topbar topbar--solid topbar--summary">
             <button class="icon-btn" id="back09" aria-label="返回">‹</button>
-            <h1>周末美食探店</h1>
+            <h1>成员列表</h1>
             <button class="icon-btn" aria-label="分享">⌘</button>
             <div class="summary-progress">
-              <span class="avatar-dot black"></span>
-              <span class="avatar-dot green"></span>
-              <span class="avatar-dot orange"></span>
-              <strong>3/5 人已提交偏好</strong>
+              <div id="summary-progress-avatars">
+                <span class="avatar-dot black"></span>
+                <span class="avatar-dot green"></span>
+                <span class="avatar-dot orange"></span>
+              </div>
+              <strong id="summary-progress-text">等待成员加入</strong>
             </div>
           </header>
 
           <div class="summary-scroll">
             <section class="summary-map-card">
-              <div class="summary-map-visual">
-                <span class="summary-pin summary-pin--home">X</span>
-                <span class="summary-pin summary-pin--food">Y</span>
-                <span class="summary-pin summary-pin--play">L</span>
+              <div class="summary-map-visual" id="summary-map-visual">
                 <span class="summary-route-line"></span>
               </div>
             </section>
 
+            <div class="summary-room-code">
+              房间码 <span id="room-code-badge"></span>
+            </div>
+
             <section class="summary-card">
               <h2>偏好共识标签</h2>
               <div class="summary-strip">
-                <div class="summary-pill summary-pill--peach">火锅 3票</div>
-                <div class="summary-pill summary-pill--yellow">人均100</div>
-                <div class="summary-pill summary-pill--green">地铁直达</div>
+                <div class="summary-pill summary-pill--peach">等待偏好汇总</div>
+                <div class="summary-pill summary-pill--yellow">提交后自动更新</div>
+                <div class="summary-pill summary-pill--green">AI 将生成共识标签</div>
               </div>
             </section>
 
             <section class="summary-card">
               <h2>成员状态</h2>
-              <div class="member-list" id="member-list">
-                <article class="member-card">
-                  <div class="avatar yellow">X</div>
-                  <div>
-                    <div class="member-name">Xinwei</div>
-                    <div class="member-meta">火锅 / 不太辣 / 100以内</div>
-                  </div>
-                  <div class="member-tag member-tag--done">已提交</div>
-                </article>
-                <article class="member-card">
-                  <div class="avatar green">Y</div>
-                  <div>
-                    <div class="member-name">Yuki</div>
-                    <div class="member-meta">粤菜 / 甜品 / 想拍照</div>
-                  </div>
-                  <div class="member-tag member-tag--done">已提交</div>
-                </article>
-                <article class="member-card">
-                  <div class="avatar blue">L</div>
-                  <div>
-                    <div class="member-name">Leo</div>
-                    <div class="member-meta">咖啡 / 少排队 / 近地铁</div>
-                  </div>
-                  <div class="member-tag member-tag--wait">待确认</div>
-                </article>
-              </div>
+              <div class="member-list" id="member-list"></div>
             </section>
 
             <button class="cta" id="build-route">✧ 生成 AI 路线</button>
@@ -338,9 +339,10 @@
           </div>
 
           <div class="map-shell">
-            <canvas id="map11" class="map-canvas" width="702" height="300"></canvas>
+            <div id="map11" class="map-canvas"></div>
           </div>
 
+          <div class="ai-reason-bar" id="ai-reason-bar"></div>
           <div class="chip-row" id="filter-row"><button class="chip is-active">综合最优</button><button class="chip">美食</button><button class="chip">玩乐</button></div>
           <div class="card-list" id="recommendation-list">
             <article class="poi-card is-selected"><div class="poi-icon yellow">火锅</div><div><h3 class="poi-title">潮汕牛肉火锅 西单店</h3><div class="poi-meta">4.7分 · ¥96/人 · 距离480m</div><div class="poi-tags">不太辣 · 地铁直达 · 适合聚餐</div></div><div class="select-circle is-on">✓</div></article>
@@ -348,7 +350,11 @@
             <article class="poi-card is-selected"><div class="poi-icon pink">甜品</div><div><h3 class="poi-title">漫糖甜品工坊</h3><div class="poi-meta">4.6分 · ¥38/人 · 距离760m</div><div class="poi-tags">少排队 · 适合拍照</div></div><div class="select-circle is-on">✓</div></article>
           </div>
 
-          <button class="cta" id="next-step">下一步：调整行程</button>
+          <!-- 已选悬浮条 -->
+          <div class="preview-selected-bar" id="preview-selected-bar">
+            <div class="preview-selected-names" id="preview-selected-names"></div>
+            <button class="cta preview-selected-cta" id="next-step">下一步 →</button>
+          </div>
           <div class="safe-area"></div>
         </div>
 
@@ -368,7 +374,7 @@
           </div>
 
           <div class="map-shell">
-            <canvas id="map12" class="map-canvas" width="702" height="300"></canvas>
+            <div id="map12" class="map-canvas"></div>
           </div>
 
           <div class="tip-bar">
@@ -393,17 +399,20 @@
 
           <div class="trip-body">
             <section class="live-map" aria-label="行程地图">
-              <div class="map-road map-road--main"></div>
-              <div class="map-road map-road--side"></div>
-              <svg class="route-line" viewBox="0 0 340 150" aria-hidden="true">
-                <polyline points="40,130 65,117 187,91 289,72 310,134"></polyline>
-              </svg>
-              <span class="map-pin map-pin--me">我</span>
-              <span class="map-pin map-pin--one" data-live-pin="1">1</span>
-              <span class="map-pin map-pin--two" data-live-pin="2">2</span>
-              <span class="map-pin map-pin--three" data-live-pin="3">3</span>
-              <span class="map-pin map-pin--four" data-live-pin="4">4</span>
-              <div class="map-bullet" id="trip-barrage">Leo：我快到了</div>
+              <div class="live-map-canvas" id="live-map13" aria-hidden="true"></div>
+              <div class="live-map-fallback" aria-hidden="true">
+                <div class="map-road map-road--main"></div>
+                <div class="map-road map-road--side"></div>
+                <svg class="route-line" viewBox="0 0 340 150" aria-hidden="true">
+                  <polyline points="40,130 65,117 187,91 289,72 310,134"></polyline>
+                </svg>
+                <span class="map-pin map-pin--me">我</span>
+                <span class="map-pin map-pin--one" data-live-pin="1">1</span>
+                <span class="map-pin map-pin--two" data-live-pin="2">2</span>
+                <span class="map-pin map-pin--three" data-live-pin="3">3</span>
+                <span class="map-pin map-pin--four" data-live-pin="4">4</span>
+              </div>
+              <div class="map-bullet" id="trip-barrage">等待行程弹幕</div>
             </section>
 
             <div class="trip-tip live-trip-tip"><span>⌖</span>4 个点位已串联，右侧导航从当前位置直达该店铺</div>
@@ -449,7 +458,7 @@
               </div>
             </section>
 
-            <div class="album-live-status"><span>◉</span>图片直播中 · 3 位成员正在同步照片</div>
+            <div class="album-live-status"><span>◉</span>图片直播中 · 成员上传后会实时同步</div>
 
             <div class="album-title-row">
               <h2>图片直播</h2>
@@ -478,17 +487,20 @@
 
           <div class="trip-body trip-body--dimmed">
             <section class="live-map" aria-hidden="true">
-              <div class="map-road map-road--main"></div>
-              <div class="map-road map-road--side"></div>
-              <svg class="route-line" viewBox="0 0 340 150" aria-hidden="true">
-                <polyline points="40,130 65,117 187,91 289,72 310,134"></polyline>
-              </svg>
-              <span class="map-pin map-pin--me">我</span>
-              <span class="map-pin map-pin--one" data-live-pin="1">1</span>
-              <span class="map-pin map-pin--two" data-live-pin="2">2</span>
-              <span class="map-pin map-pin--three" data-live-pin="3">3</span>
-              <span class="map-pin map-pin--four" data-live-pin="4">4</span>
-              <div class="map-bullet" id="trip-barrage-preview">Leo：我快到了</div>
+              <div class="live-map-canvas" id="live-map15" aria-hidden="true"></div>
+              <div class="live-map-fallback" aria-hidden="true">
+                <div class="map-road map-road--main"></div>
+                <div class="map-road map-road--side"></div>
+                <svg class="route-line" viewBox="0 0 340 150" aria-hidden="true">
+                  <polyline points="40,130 65,117 187,91 289,72 310,134"></polyline>
+                </svg>
+                <span class="map-pin map-pin--me">我</span>
+                <span class="map-pin map-pin--one" data-live-pin="1">1</span>
+                <span class="map-pin map-pin--two" data-live-pin="2">2</span>
+                <span class="map-pin map-pin--three" data-live-pin="3">3</span>
+                <span class="map-pin map-pin--four" data-live-pin="4">4</span>
+              </div>
+              <div class="map-bullet" id="trip-barrage-preview">等待行程弹幕</div>
             </section>
             <div class="trip-tip live-trip-tip"><span>⌖</span>4 个点位已串联，右侧导航从当前位置直达该店铺</div>
             <div class="itinerary-list itinerary-list--peek" id="comment-preview-list"></div>
@@ -522,8 +534,8 @@
             <article class="notebook-card" id="notebook-card">
               <div class="notebook-cover">
                 <span>美团 Vibe</span>
-                <h2 class="notebook-title">周末美食探店 AI 手帐</h2>
-                <p class="notebook-subtitle">今天 20:48 · 火锅 → 咖啡 → 甜品</p>
+                <h2 class="notebook-title">本次行程 AI 手帐</h2>
+                <p class="notebook-subtitle">生成后展示路线与照片摘要</p>
               </div>
               <section class="notebook-section">
                 <h3>路线回顾</h3>
@@ -660,12 +672,9 @@
           }
         }
         if (button.id === 'copy-room-link') {
-          navigator.clipboard && navigator.clipboard.writeText('https://meituan.example/route-room/8273');
-          alert('邀请链接已复制');
           return;
         }
         if (button.id === 'send-invite') {
-          alert('已生成邀请图片卡片（mock）');
           return;
         }
         if (button.dataset.location) {
@@ -719,7 +728,12 @@
         window.MTVibeToastTimer = setTimeout(function () { toast.classList.remove('show'); }, 1500);
       };
     </script>
-    <script src="./mock-api.js?v=20260528-2"></script>
+    <!-- 高德地图 JS API 2.0 安全密钥配置 -->
+    <script>
+      window._AMapSecurityConfig = { securityJsCode: 'ec90d26d08ccc037ed935b4c4b2f2143' };
+    </script>
+    <script src="https://webapi.amap.com/maps?v=2.0&key=3a8163147694ab4137ebf7f14354ce25&plugin=AMap.AutoComplete"></script>
+    <script src="./real-api.js?v=20260529-1"></script>
     <script src="./app.js?v=20260528-2"></script>
   </body>
 </html>
