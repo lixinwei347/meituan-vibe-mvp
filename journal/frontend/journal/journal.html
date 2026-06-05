@@ -21,12 +21,16 @@
           </div>
         </header>
 
-        <!-- 模板 -->
+        <!-- 模板 + AI -->
         <div class="template-row" id="template-row">
           <button class="template-chip active" data-template="fresh">🍃 清新</button>
           <button class="template-chip" data-template="retro">📜 复古</button>
           <button class="template-chip" data-template="ins">💗 ins风</button>
         </div>
+
+        <button class="ai-generate-btn" id="btn-ai-generate">
+          <span>✨ 刷新手帐</span>
+        </button>
 
         <!-- 画布（可拖拽缩放） -->
         <div class="journal-canvas" id="journal-canvas">
@@ -82,11 +86,28 @@
           <button class="trip-tab trip-tab--primary" id="btn-detail-next" type="button">下一张<span>›</span></button>
         </nav>
         <div class="safe-area"></div>
+
+        <!-- AI 生成中浮层 -->
+        <div class="ai-loading-overlay hidden" id="ai-loading">
+          <div class="ai-loading-card">
+            <div class="ai-loading-spinner"></div>
+            <p id="ai-loading-text">AI 正在生成手帐…</p>
+            <small id="ai-loading-progress"></small>
+          </div>
+        </div>
+      </div>
+
+      <!-- 卡片详情 AI 浮层 -->
+      <div class="ai-loading-overlay hidden" id="ai-detail-loading">
+        <div class="ai-loading-card">
+          <div class="ai-loading-spinner"></div>
+          <p>AI 正在为这张照片写文案…</p>
+        </div>
       </div>
 
     </div>
   </div>
 
-  <script src="journal.js?v=6"></script>
+  <script src="journal2.js"></script>
 </body>
 </html>

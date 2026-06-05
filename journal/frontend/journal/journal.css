@@ -98,6 +98,44 @@ button {
 }
 .template-chip.active { border-color: var(--stamp); background: var(--paper-light); color: var(--stamp); }
 
+/* AI 生成按钮 */
+.ai-generate-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  height: 38px; margin: 0 0 2px; flex-shrink: 0;
+  border: 0; border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff; font-size: 14px; font-weight: 950;
+  cursor: pointer; box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3);
+}
+.ai-generate-btn:active { transform: scale(0.97); }
+.ai-generate-btn.loading { opacity: 0.6; pointer-events: none; }
+
+/* AI Loading */
+.ai-loading-overlay {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(47, 36, 26, 0.4);
+}
+.ai-loading-overlay.hidden { display: none; }
+
+.ai-loading-card {
+  background: #fff; border-radius: 18px; padding: 32px 28px;
+  text-align: center; box-shadow: 0 20px 40px rgba(47, 36, 26, 0.25);
+  min-width: 220px;
+}
+.ai-loading-card p { margin: 16px 0 4px; font-size: 15px; font-weight: 950; color: var(--ink); }
+.ai-loading-card small { color: var(--muted); font-size: 12px; font-weight: 800; }
+
+.ai-loading-spinner {
+  width: 40px; height: 40px; margin: 0 auto;
+  border: 3px solid #e8e2d3; border-top-color: #6366f1;
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* AI 生成后卡片高亮 */
+.story-card.ai-generated { border: 2px solid rgba(99, 102, 241, 0.25); }
+
 /* ===== 画布（可拖拽缩放）===== */
 .journal-canvas {
   flex: 1; overflow: hidden; position: relative;
@@ -138,6 +176,18 @@ button {
   color: var(--ink); font-size: 16px; font-weight: 900;
   box-shadow: 0 6px 12px rgba(47,36,26,0.14);
 }
+
+/* 空画布 */
+.canvas-empty {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 40px; text-align: center;
+}
+.canvas-empty-icon { font-size: 56px; margin-bottom: 12px; opacity: 0.6; }
+.canvas-empty h3 { margin: 0 0 6px; font-size: 18px; font-weight: 950; color: var(--ink); }
+.canvas-empty p { margin: 0; font-size: 13px; color: var(--muted); font-weight: 800; }
+.canvas-empty-hint { margin-top: 8px !important; font-size: 11px !important; opacity: 0.7; }
 
 /* ===== 画布上的贴纸卡片 ===== */
 .canvas-sticker {
@@ -270,6 +320,36 @@ button {
   border-radius: 8px; color: #fff; font-size: 14px; font-weight: 950;
 }
 .stamp { background: var(--stamp); box-shadow: 0 10px 20px rgba(185, 78, 59, 0.22); }
+
+/* ===== 模板主题色 ===== */
+/* 清新 fresh — 绿色系 */
+.journal-canvas.template-fresh {
+  --tpl-accent: #7EC8A8;
+  --tpl-accent-light: rgba(126, 200, 168, 0.15);
+}
+.journal-canvas.template-fresh .sticker-step { background: #7EC8A8; }
+.journal-canvas.template-fresh .ai-card-kicker { background: rgba(126, 200, 168, 0.18); color: #3a7a5e; }
+.journal-canvas.template-fresh .ai-tag-row span { background: rgba(126, 200, 168, 0.12); color: #3a7a5e; }
+
+/* 复古 retro — 棕褐色系 */
+.journal-canvas.template-retro {
+  --tpl-accent: #C4956A;
+  --tpl-accent-light: rgba(196, 149, 106, 0.15);
+  font-family: Georgia, "Noto Serif SC", serif;
+}
+.journal-canvas.template-retro .sticker-step { background: #C4956A; }
+.journal-canvas.template-retro .ai-card-kicker { background: rgba(196, 149, 106, 0.2); color: #8a6038; }
+.journal-canvas.template-retro .ai-tag-row span { background: rgba(196, 149, 106, 0.12); color: #8a6038; }
+
+/* ins风 — 粉色系 */
+.journal-canvas.template-ins {
+  --tpl-accent: #E87D7D;
+  --tpl-accent-light: rgba(232, 125, 125, 0.15);
+  font-family: Helvetica, Arial, "PingFang SC", sans-serif;
+}
+.journal-canvas.template-ins .sticker-step { background: #E87D7D; }
+.journal-canvas.template-ins .ai-card-kicker { background: rgba(232, 125, 125, 0.2); color: #c44a4a; }
+.journal-canvas.template-ins .ai-tag-row span { background: rgba(232, 125, 125, 0.12); color: #c44a4a; }
 
 /* 移动端全屏 */
 @media (max-width: 460px) {

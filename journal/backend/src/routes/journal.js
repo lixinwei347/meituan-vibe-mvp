@@ -1,5 +1,6 @@
 const express = require('express');
-const { getTrip, getPhotos, getReviews, getTemplates, generateJournal } = require('../db');
+const { getTrip, getPhotos, getReviews, getTemplates } = require('../db');
+const { generateJournal } = require('../ai');
 
 const router = express.Router();
 
@@ -24,15 +25,36 @@ router.get('/api/trips/:tripId/journal', (req, res) => {
   });
 });
 
-// ===== 生成手帐 =====
-router.post('/api/trips/:tripId/journal/generate', (req, res) => {
-  const { templateId } = req.body;
-  const journal = generateJournal(req.params.tripId, templateId);
+// ===== AI 生成手帐 =====
+router.post('/api/trips/:tripId/journal/ai-generate', async (req, res) => {
+  try {
+    const tripId = req.params.tripId;
+    const { template } = req.body;
 
-  // 模拟 AI 处理延迟（后续替换为真实 AI 调用）
-  setTimeout(() => {
+    const trip = getTrip(tripId);
+    const photos = getPhotos(tripId);
+    const reviews = getReviews(tripId);
+
+    if (!photos.length) {
+      return res.status(400).json({ error: '该房间还没有照片，请先上传照片' });
+    }
+
+    const journal = await generateJournal({
+      tripId,
+      stops: trip.stops || [],
+      photos,
+      reviews,
+      members: trip.members || [],
+      template: template || 'fresh',
+    }, (current, total, msg) => {
+      console.log(`[AI] ${msg} (${current}/${total})`);
+    });
+
     res.json({ journal });
-  }, 1500);
+  } catch (err) {
+    console.error('[AI] 生成失败:', err.message);
+    res.status(500).json({ error: err.message || 'AI 生成失败' });
+  }
 });
 
 // ===== 模板列表 =====

@@ -34,7 +34,12 @@
   // ===== URL 参数解析 =====
   function getTripId() {
     var params = new URLSearchParams(window.location.search);
-    return params.get('tripId') || 'trip001';
+    var id = params.get('tripId');
+    if (!id || id === 'trip001') {
+      var saved = sessionStorage.getItem('meituan_room');
+      if (saved) return saved;
+    }
+    return id || 'trip001';
   }
 
   function getUserName() {
@@ -45,7 +50,7 @@
   // ===== API 调用 =====
   async function fetchPhotos() {
     try {
-      var res = await fetch(API + '/api/trips/' + TRIP_ID + '/photos');
+      var res = await fetch(API + '/api/trips/' + TRIP_ID + '/photos?_=' + Date.now());
       if (!res.ok) throw new Error('HTTP ' + res.status);
       var data = await res.json();
       return data.photos || [];

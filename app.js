@@ -243,14 +243,24 @@ async function bootstrap() {
   var hash = window.location.hash;
   var params = new URLSearchParams(window.location.search);
   var roomFromUrl = params.get('room');
+
+  // 恢复房间码：URL 参数 > sessionStorage > 默认空
   if (roomFromUrl) {
     state.roomCode = roomFromUrl;
     state.currentTripId = roomFromUrl;
+    sessionStorage.setItem('meituan_room', roomFromUrl);
+  } else if (!state.roomCode) {
+    var savedRoom = sessionStorage.getItem('meituan_room');
+    if (savedRoom) {
+      state.roomCode = savedRoom;
+      state.currentTripId = savedRoom;
+    }
   }
+
   if (hash && /^#\d{2}$/.test(hash)) {
     state.screen = hash.slice(1);
   }
-  // 清理 URL 参数避免刷新时重复
+  // 清理 URL 参数
   if (roomFromUrl || (hash && /^#\d{2}$/.test(hash))) {
     window.history.replaceState(null, '', window.location.pathname);
   }
@@ -299,6 +309,7 @@ function bindEvents() {
     }
     state.roomCode = code;
     state.currentTripId = code;
+    sessionStorage.setItem('meituan_room', code);
     state.screen = '08';
     render();
     showToast(`已加入房间 ${code}`);
@@ -308,6 +319,7 @@ function bindEvents() {
     // 创建房间时生成 4 位房间码
     state.roomCode = String(Math.floor(1000 + Math.random() * 9000));
     state.currentTripId = state.roomCode;
+    sessionStorage.setItem('meituan_room', state.roomCode);
     state.screen = '07';
     render();
   });

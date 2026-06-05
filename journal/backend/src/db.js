@@ -19,7 +19,11 @@ db.exec(`
     uploader_name TEXT NOT NULL DEFAULT '匿名',
     likes INTEGER NOT NULL DEFAULT 0,
     tone TEXT NOT NULL DEFAULT 'peach',
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    ai_title TEXT DEFAULT NULL,
+    ai_narrative TEXT DEFAULT NULL,
+    ai_tags TEXT DEFAULT NULL,
+    ai_generated_at TEXT DEFAULT NULL
   );
 
   CREATE TABLE IF NOT EXISTS reviews (
@@ -46,6 +50,12 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_photos_trip ON photos(trip_id);
   CREATE INDEX IF NOT EXISTS idx_reviews_trip ON reviews(trip_id);
 `);
+
+// 迁移：给旧表添加 AI 字段
+try { db.exec('ALTER TABLE photos ADD COLUMN ai_title TEXT DEFAULT NULL'); } catch (e) {}
+try { db.exec('ALTER TABLE photos ADD COLUMN ai_narrative TEXT DEFAULT NULL'); } catch (e) {}
+try { db.exec('ALTER TABLE photos ADD COLUMN ai_tags TEXT DEFAULT NULL'); } catch (e) {}
+try { db.exec('ALTER TABLE photos ADD COLUMN ai_generated_at TEXT DEFAULT NULL'); } catch (e) {}
 
 // ===== 种子数据（只在表为空时插入）=====
 const photoCount = db.prepare('SELECT COUNT(*) as count FROM photos').get();
@@ -96,7 +106,8 @@ if (photoCount.count === 0) {
 function getPhotos(tripId) {
   return db.prepare(`
     SELECT id, trip_id AS tripId, url, data_url AS dataUrl, title,
-           uploader_name AS uploaderName, likes, tone, created_at AS createdAt
+           uploader_name AS uploaderName, likes, tone, created_at AS createdAt,
+           ai_title AS aiTitle, ai_narrative AS aiNarrative, ai_tags AS aiTags, ai_generated_at AS aiGeneratedAt
     FROM photos WHERE trip_id = ?
     ORDER BY created_at DESC
   `).all(tripId);
@@ -128,9 +139,28 @@ function toggleLike(photoId) {
 function getPhotoById(photoId) {
   return db.prepare(`
     SELECT id, trip_id AS tripId, url, data_url AS dataUrl, title,
-           uploader_name AS uploaderName, likes, tone, created_at AS createdAt
+           uploader_name AS uploaderName, likes, tone, created_at AS createdAt,
+           ai_title AS aiTitle, ai_narrative AS aiNarrative, ai_tags AS aiTags, ai_generated_at AS aiGeneratedAt
     FROM photos WHERE id = ?
   `).get(photoId);
+}
+
+// 存 AI 生成的卡片数据
+function saveAiCard(photoId, { title, narrative, tags }) {
+  db.prepare(`
+    UPDATE photos SET ai_title = ?, ai_narrative = ?, ai_tags = ?, ai_generated_at = datetime('now')
+    WHERE id = ?
+  `).run(title || '', narrative || '', JSON.stringify(tags || []), photoId);
+}
+
+// 找还没 AI 生成的照片
+function getPhotosNeedingAi() {
+  return db.prepare(`
+    SELECT id, trip_id AS tripId, url, data_url AS dataUrl, title,
+           uploader_name AS uploaderName, likes, tone, created_at AS createdAt
+    FROM photos WHERE ai_generated_at IS NULL
+    ORDER BY created_at ASC
+  `).all();
 }
 
 // ===== 评论查询 =====
@@ -249,6 +279,8 @@ module.exports = {
   addPhoto,
   toggleLike,
   getPhotoById,
+  saveAiCard,
+  getPhotosNeedingAi,
   getReviews,
   getPhotoComments,
   addPhotoComment,

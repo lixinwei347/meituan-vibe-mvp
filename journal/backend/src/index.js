@@ -1,3 +1,5 @@
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -38,8 +40,31 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'journal-server', db: 'sqlite' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`📔 Journal Server running at http://localhost:${PORT}`);
   console.log(`   存储: SQLite (data.db)`);
-  console.log(`   日志: 已开启请求日志`);
+
+  // 启动后补处理之前没 AI 生成的照片
+  if (process.env.ARK_API_KEY) {
+    try {
+      const { getTrip, getPhotosNeedingAi, saveAiCard } = require('./db');
+      const { generateCardForPhoto } = require('./ai');
+      const pending = getPhotosNeedingAi();
+      if (pending.length) {
+        console.log(`[AI] 发现 ${pending.length} 张照片待补生成，并行处理…`);
+        await Promise.all(pending.map(async (p) => {
+          try {
+            const trip = getTrip(p.tripId);
+            const card = await generateCardForPhoto(p, trip.stops || []);
+            saveAiCard(p.id, { title: card.cardTitle, narrative: card.narrative, tags: card.tags });
+            console.log(`[AI] 照片#${p.id} 补生成完成`);
+          } catch (err) {
+            console.warn(`[AI] 照片#${p.id} 补生成失败:`, err.message);
+          }
+        }));
+      }
+    } catch (err) {
+      console.warn('[AI] 补生成异常:', err.message);
+    }
+  }
 });

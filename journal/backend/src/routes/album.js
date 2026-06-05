@@ -1,7 +1,8 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const { getPhotos, addPhoto, toggleLike, getPhotoComments, addPhotoComment } = require('../db');
+const { getTrip, getPhotos, addPhoto, toggleLike, getPhotoComments, addPhotoComment, saveAiCard } = require('../db');
+const { generateCardForPhoto } = require('../ai');
 
 const router = express.Router();
 
@@ -36,35 +37,50 @@ router.get('/api/trips/:tripId/photos', (req, res) => {
 
 // ===== 上传照片（支持两种方式）=====
 // 1. multipart 文件上传
-router.post('/api/trips/:tripId/photos', handleUpload, (req, res) => {
+router.post('/api/trips/:tripId/photos', handleUpload, async (req, res) => {
   const { title, uploaderName, tone } = req.body;
 
+  let photo;
   if (req.file) {
-    // 文件上传 → url 指向本地文件
-    const photo = addPhoto({
+    photo = addPhoto({
       tripId: req.params.tripId,
       url: `/uploads/${req.file.filename}`,
       title,
       uploaderName,
       tone,
     });
-    return res.status(201).json({ photo });
+  } else {
+    const { dataUrl } = req.body;
+    if (!dataUrl) {
+      return res.status(400).json({ error: '请选择照片或提供 base64 数据' });
+    }
+    photo = addPhoto({
+      tripId: req.params.tripId,
+      dataUrl,
+      title,
+      uploaderName,
+      tone,
+    });
   }
 
-  // 2. base64 上传（data_url 字段）
-  const { dataUrl } = req.body;
-  if (!dataUrl) {
-    return res.status(400).json({ error: '请选择照片或提供 base64 数据' });
-  }
-
-  const photo = addPhoto({
-    tripId: req.params.tripId,
-    dataUrl,
-    title,
-    uploaderName,
-    tone,
-  });
+  // 先返回给用户，不等待 AI
   res.status(201).json({ photo });
+
+  // 后台异步调用 AI 生成卡片
+  if (process.env.ARK_API_KEY) {
+    try {
+      const trip = getTrip(req.params.tripId);
+      const card = await generateCardForPhoto(photo, trip.stops || []);
+      saveAiCard(photo.id, {
+        title: card.cardTitle,
+        narrative: card.narrative,
+        tags: card.tags,
+      });
+      console.log(`[AI] 照片#${photo.id} 卡片生成完成`);
+    } catch (err) {
+      console.warn(`[AI] 照片#${photo.id} 生成失败:`, err.message);
+    }
+  }
 });
 
 // ===== 点赞 =====
