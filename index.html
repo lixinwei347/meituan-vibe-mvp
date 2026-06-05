@@ -677,6 +677,20 @@
         if (button.id === 'send-invite') {
           return;
         }
+        if (window.__mtVibeRender && [
+          'create-room',
+          'join-room',
+          'save-room-settings',
+          'start-preferences',
+          'submit-prefs',
+          'build-route',
+          'skip-loading',
+          'next-step',
+          'open-album',
+          'open-comment-panel'
+        ].includes(button.id)) {
+          return;
+        }
         if (button.dataset.location) {
           var locationInput = document.getElementById('location-input');
           if (locationInput) locationInput.value = button.dataset.location;

@@ -39,6 +39,17 @@ button {
   font: inherit;
 }
 
+.empty-state {
+  margin: 12px 0;
+  padding: 16px 14px;
+  border-radius: 16px;
+  background: rgba(17, 17, 17, 0.05);
+  color: rgba(17, 17, 17, 0.64);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+}
+
 .app-shell {
   position: relative;
   width: calc(390px * var(--app-scale));
@@ -378,6 +389,59 @@ button {
   font: inherit;
 }
 
+.location-input-wrap {
+  position: relative;
+}
+
+.location-autocomplete {
+  display: none;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 99;
+  margin: 0;
+  padding: 6px 0;
+  list-style: none;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.12);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.location-autocomplete.is-open {
+  display: block;
+}
+
+.location-autocomplete li {
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #f5f5f5;
+  line-height: 1.4;
+}
+
+.location-autocomplete li:last-child {
+  border-bottom: 0;
+}
+
+.location-autocomplete li:hover,
+.location-autocomplete li:active {
+  background: #fff8f5;
+}
+
+.location-autocomplete li strong {
+  display: block;
+  font-weight: 600;
+  color: #111;
+}
+
+.location-autocomplete li span {
+  font-size: 12px;
+  color: #aaa;
+}
+
 .location-suggestions {
   display: flex;
   gap: 8px;
@@ -663,6 +727,36 @@ button {
   font-weight: 900;
 }
 
+.room-nickname-row {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+  margin-bottom: 4px;
+  width: 100%;
+  height: 44px;
+  border-radius: 18px;
+  background: #f6f6f6;
+  padding: 0 18px;
+  font-size: 16px;
+}
+
+.room-nickname-row span {
+  margin-right: 14px;
+  color: #aaa;
+  font-size: 18px;
+}
+
+.room-nickname-row input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #111;
+  font: inherit;
+  font-weight: 600;
+}
+
 .room-subtitle {
   padding: 0 28px 18px;
   background: var(--yellow);
@@ -801,6 +895,49 @@ button {
 
 .cta--fixed {
   margin: 8px 16px 14px;
+}
+
+/* screen11 已选悬浮条 */
+.preview-selected-bar {
+  display: none;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  margin: 0 12px 12px;
+  padding: 10px 14px;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 -2px 16px rgba(0,0,0,.10);
+  align-items: center;
+  gap: 10px;
+}
+
+.preview-selected-bar.is-visible {
+  display: flex;
+}
+
+.preview-selected-names {
+  flex: 1;
+  font-size: 12px;
+  color: #555;
+  line-height: 1.5;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-selected-names strong {
+  color: #111;
+  font-weight: 700;
+}
+
+.preview-selected-cta {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 10px 18px;
+  font-size: 14px;
+  border-radius: 999px;
 }
 
 .screen-07 {
@@ -1389,6 +1526,31 @@ button {
   width: 100%;
   height: 190px;
   cursor: pointer;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ai-reason-bar {
+  display: none;
+  margin: 8px 12px 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #fff8f0, #fff3e8);
+  border-left: 3px solid #ff5a22;
+  font-size: 12px;
+  color: #a04010;
+  line-height: 1.5;
+}
+
+.ai-reason-bar.is-visible {
+  display: block;
+}
+
+.ai-reason-bar::before {
+  content: '✦ 豆包 AI：';
+  font-weight: 700;
+  color: #ff5a22;
+  margin-right: 4px;
 }
 
 .chip-row {
@@ -1454,6 +1616,40 @@ button {
   color: var(--orange);
   background: var(--peach);
   font-size: 15px;
+}
+
+.poi-icon--image,
+.stop-photo--image {
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  color: #fff;
+}
+
+.poi-icon--image img,
+.stop-photo--image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.poi-icon--image span,
+.stop-photo--image span {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  max-width: calc(100% - 12px);
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(17, 17, 17, 0.66);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .poi-icon.mint {
@@ -1911,6 +2107,19 @@ button {
   grid-template-rows: 34px 1fr;
 }
 
+.room-code-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #ff5a22;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  vertical-align: middle;
+  letter-spacing: 1px;
+}
+
 .summary-progress {
   grid-column: 1 / -1;
   display: flex;
@@ -1966,6 +2175,24 @@ button {
   position: relative;
 }
 
+.summary-room-code {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 0 2px;
+  color: #888;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.summary-room-code span {
+  color: #111;
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
 .summary-map-card::before {
   content: '';
   position: absolute;
@@ -1994,6 +2221,18 @@ button {
   border-radius: 14px;
   padding: 8px 10px;
   grid-template-columns: 34px 1fr auto;
+}
+
+/* 自己的名片（未提交）：高亮边框 + 可点击 */
+.member-card--self {
+  border: 2px solid #ff5a22 !important;
+  cursor: pointer;
+  background: #fff8f5;
+}
+
+.member-card--self .member-meta {
+  color: #ff5a22 !important;
+  font-weight: 600;
 }
 
 .member-card--status .avatar {
@@ -3312,6 +3551,24 @@ button {
   background: #eef1ec;
 }
 
+.live-map-canvas,
+.live-map-fallback {
+  position: absolute;
+  inset: 0;
+}
+
+.live-map-canvas {
+  z-index: 1;
+}
+
+.live-map-fallback {
+  z-index: 2;
+}
+
+.live-map.is-real .live-map-fallback {
+  display: none;
+}
+
 .map-road {
   position: absolute;
   border-radius: 999px;
@@ -3406,6 +3663,13 @@ button {
   min-width: 72px;
   max-width: none;
   overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+  animation: none;
+}
+
+.map-bullet.is-active {
+  opacity: 1;
   animation: barrageFloat 10s linear infinite;
 }
 
@@ -3509,6 +3773,16 @@ button {
 
 .stop-stats {
   margin-top: 4px;
+}
+
+.stop-latest-comment {
+  margin: 5px 0 0;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
 .live-stop-actions {

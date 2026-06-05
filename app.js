@@ -191,6 +191,11 @@ const liveMap15 = createMapAdapter(el.liveMap15);
 let loadingAnimationFrame = 0;
 let eventsBound = false;
 
+if (typeof window !== 'undefined') {
+  window.__mtVibeTestState = state;
+  window.__mtVibeRender = render;
+}
+
 function shouldHydrateInitialRoutePlan(snapshot) {
   return (
     state.screen === snapshot.screen &&
@@ -360,22 +365,24 @@ function bindEvents() {
   el.createRoom.addEventListener('click', async () => {
     const nickname = (el.roomNicknameCreate?.value || '').trim() || '房主';
     const avatar = nickname.charAt(0).toUpperCase();
-    if (window.RoomApi) {
-      try {
-        showToast('创建中...');
-        const roomData = await window.RoomApi.createRoom({});
-        state.roomCode = roomData.code;
-        const joinData = await window.RoomApi.joinRoom(roomData.code, { nickname, avatar });
-        state.memberId = joinData.memberId;
-        state.currentMembers = joinData.members || [];
-        registerRoomWsListeners();
-      } catch (e) {
-        console.warn('创建房间失败，使用本地 mock', e);
-        showToast('创建失败，已使用本地模式');
-      }
+    if (!window.RoomApi) {
+      showToast('房间服务不可用');
+      return;
     }
-    state.screen = '09';
-    render();
+    try {
+      showToast('创建中...');
+      const roomData = await window.RoomApi.createRoom({});
+      state.roomCode = roomData.code;
+      const joinData = await window.RoomApi.joinRoom(roomData.code, { nickname, avatar });
+      state.memberId = joinData.memberId;
+      state.currentMembers = joinData.members || [];
+      registerRoomWsListeners();
+      state.screen = '09';
+      render();
+    } catch (e) {
+      console.warn('创建房间失败', e);
+      showToast('创建房间失败，请稍后重试');
+    }
   });
 
   el.joinRoom.addEventListener('click', async () => {
@@ -388,29 +395,26 @@ function bindEvents() {
     const nickname = (el.roomNicknameJoin?.value || '').trim() || '匿名';
     // 取昵称首字母大写作为头像字符
     const avatar = nickname.charAt(0).toUpperCase();
-    if (window.RoomApi) {
-      try {
-        showToast('加入中...');
-        const data = await window.RoomApi.joinRoom(code, { nickname, avatar });
-        state.roomCode = code;
-        state.memberId = data.memberId;
-        state.currentMembers = data.members || [];
-        registerRoomWsListeners();
-        state.screen = '09';
-        render();
-        showToast(`已加入房间 ${code}`);
-        return;
-      } catch (e) {
-        const msg = e.message === 'ROOM_NOT_FOUND' ? '房间不存在' : '加入失败，请重试';
-        showToast(msg);
-        return;
-      }
+    if (!window.RoomApi) {
+      showToast('房间服务不可用');
+      return;
     }
-    // 降级：无 RoomApi 时走本地 mock
-    state.roomCode = code;
-    state.screen = '09';
-    render();
-    showToast(`已加入房间 ${code}`);
+    try {
+      showToast('加入中...');
+      const data = await window.RoomApi.joinRoom(code, { nickname, avatar });
+      state.roomCode = code;
+      state.memberId = data.memberId;
+      state.currentMembers = data.members || [];
+      registerRoomWsListeners();
+      state.screen = '09';
+      render();
+      showToast(`已加入房间 ${code}`);
+      return;
+    } catch (e) {
+      const msg = e.message === 'ROOM_NOT_FOUND' ? '房间不存在' : '加入失败，请重试';
+      showToast(msg);
+      return;
+    }
   });
 
   el.saveRoomSettings.addEventListener('click', () => {
@@ -879,8 +883,13 @@ function render() {
   renderCommentTargets();
   renderEndTripDialog();
   renderNotebook();
+  renderMediaViewer();
   renderHistory();
   drawMaps();
+  if (typeof window !== 'undefined') {
+    window.__mtVibeTestState = state;
+    window.__mtVibeRender = render;
+  }
 }
 
 function getStopComment(stopId) {
@@ -895,7 +904,7 @@ function getLiveStops() {
   return routeStops.map((poi, index) => normalizeLiveStop(poi, index));
 }
 
-// 根据 POI 类别推算色调（与 mock 数据中的 mood 对应）
+// 根据 POI 类别推算色调
 function poiTone(poi) {
   if (poi.mood) return poi.mood;
   const sub = poi.subCategory || poi.category || '';
@@ -1169,6 +1178,10 @@ async function deleteLiveStop(id) {
 
 function renderAlbum() {
   el.albumCount.textContent = `${state.albumPhotos.length}张`;
+  if (!state.albumPhotos.length) {
+    el.photoGrid.innerHTML = '<div class="empty-state">还没有照片，上传后会显示在这里</div>';
+    return;
+  }
   el.photoGrid.innerHTML = state.albumPhotos.map((photo) => `
     <article class="photo-card photo-card--${photo.tone}" ${photo.url ? `style="background-image: linear-gradient(180deg, rgba(255,255,255,.38), rgba(255,255,255,.76)), url('${photo.url}')"` : ''}>
       <div class="photo-card-top">
@@ -1391,7 +1404,7 @@ function renderNotebook() {
   if (!el.notebookCard) return;
   const notebook = getActiveNotebook();
   if (!notebook) {
-    el.notebookCard.innerHTML = '<div class="notebook-empty">结束行程后可生成 AI 手帐</div>';
+    el.notebookCard.innerHTML = '<div class="notebook-empty empty-state">还没有生成 AI 手帐</div>';
     return;
   }
   el.notebookCard.className = 'notebook-card notebook-card--sheet';
@@ -1504,7 +1517,15 @@ function openMediaViewer(index) {
 
 function renderMediaViewer() {
   const notebook = getActiveNotebook();
-  if (!notebook?.photos?.length || !el.mediaViewerContent) return;
+  if (!el.mediaViewerContent) return;
+  if (!notebook?.photos?.length) {
+    el.mediaViewerContent.className = 'media-viewer-content media-viewer-content--empty';
+    el.mediaViewerContent.style.backgroundImage = '';
+    el.mediaViewerContent.textContent = '暂无可预览内容';
+    el.mediaTitle.textContent = '媒体预览';
+    el.mediaMeta.textContent = '生成手帐后可查看照片或视频';
+    return;
+  }
   const photo = notebook.photos[state.mediaViewer.index];
   el.mediaViewerContent.className = `media-viewer-content media-viewer-content--${photo.tone}`;
   el.mediaViewerContent.style.backgroundImage = photo.url
@@ -1788,6 +1809,10 @@ function renderSummaryProgress() {
 
 function renderMembers() {
   const list = state.currentMembers;
+  if (!list.length) {
+    el.memberList.innerHTML = '<div class="empty-state">等待成员加入后再一起填写偏好</div>';
+    return;
+  }
   el.memberList.innerHTML = list
     .map((member, index) => {
       const isSelf    = member.memberId === state.memberId;
@@ -1851,15 +1876,15 @@ async function finishLoadingSequence() {
   clearLoadingSequence();
   try {
     await refreshRecommendations();
-    state.previewIds = (state.recommendations.length ? state.recommendations : getAllPois()).slice(0, 3).map((poi) => poi.id);
+    state.previewIds = state.recommendations.slice(0, 3).map((poi) => poi.id);
     state.previewSelectedIds = [];
     state.previewPoiPool = [...state.recommendations];  // 初始化 pool
     state.routePlan = { selected: [], totalDistanceLabel: '待选' };
   } catch (error) {
-    console.error('生成 AI 路线失败，已使用兜底推荐', error);
-    state.previewIds = getAllPois().slice(0, 3).map((poi) => poi.id);
+    console.error('生成 AI 路线失败', error);
+    state.previewIds = [];
     state.previewSelectedIds = [];
-    state.previewPoiPool = [...getAllPois()];
+    state.previewPoiPool = [];
     state.routePlan = { selected: [], totalDistanceLabel: '待选' };
   }
   state.screen = '11';
@@ -1946,7 +1971,13 @@ function renderRecommendations() {
     ? state.recommendations          // 显示当前 tab 全部结果（不限3条）
     : state.recommendations.length
       ? state.recommendations
-      : getAllPois().slice(0, 5);
+      : [];
+  if (!items.length) {
+    el.recommendationList.innerHTML = '<div class="empty-state">暂无推荐结果，请先填写位置或稍后重试</div>';
+    el.routeDistance.textContent = '待选';
+    if (el.previewSelectedBar) el.previewSelectedBar.classList.remove('is-visible');
+    return;
+  }
   el.recommendationList.innerHTML = items
     .map((poi, index) => {
       const checked = state.screen === '11' ? state.previewSelectedIds.includes(poi.id) : state.selectedIds.includes(poi.id);
@@ -1996,6 +2027,10 @@ function renderRoute() {
   const selected = state.routePlan?.selected?.length
     ? state.routePlan.selected
     : state.selectedIds.map((id) => getPoiById(id) || state.previewPoiPool?.find((p) => p.id === id)).filter(Boolean);
+  if (!selected.length) {
+    el.routeList.innerHTML = '<div class="empty-state">还没有路线，请先选择地点</div>';
+    return;
+  }
 
   el.routeList.innerHTML = selected
     .map((poi, index) => {
