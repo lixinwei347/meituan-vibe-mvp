@@ -1,13 +1,13 @@
 # Journal 模块
 
-美团黑客松的**共享相册 + AI 手帐**模块。独立于主项目开发，独立部署。
+美团黑客松的**共享相册 + 探店手帐**模块。独立于主项目开发，独立部署。
 
 ## 职责范围
 
 | 子模块 | 对应主项目 | 功能 |
 |--------|----------|------|
 | 共享相册 | screen-14（已删除，改独立页面） | 多人拍照上传、图片直播、点赞、弹幕评论 |
-| AI 手帐 | screen-18（跳转独立页面） | 画布卡片、模板切换、拖拽缩放、保存图片 |
+| 探店手帐 | screen-18（跳转独立页面） | 画布卡片、模板切换、拖拽缩放、保存图片 |
 
 ## 与主界面的交互
 
@@ -39,20 +39,23 @@ journal/
 │   │   ├── album.html
 │   │   ├── album.css             ← 美团风格（与主应用一致）
 │   │   └── album.js
-│   └── journal/                  ← AI 手帐
+│   └── journal/                  ← 探店手帐
 │       ├── journal.html
-│       ├── journal.css           ← test_page 牛皮纸风格
-│       └── journal.js
+│       ├── journal.css           ← 牛皮纸风格
+│       └── journal.js (journal2.js)
 └── backend/
+    ├── .env                      ← API Key（gitignore）
+    ├── .env.example
     ├── data.db                   ← SQLite 数据库（gitignore）
     ├── package.json
     ├── uploads/                  ← 照片文件（gitignore）
     └── src/
         ├── index.js              ← Express 入口，端口 4181
         ├── db.js                 ← 建表 + 种子数据 + 查询
+        ├── ai.js                 ← 豆包视觉模型调用
         ├── routes/
         │   ├── album.js          ← 照片上传/点赞/弹幕 API
-        │   └── journal.js        ← 手帐数据汇总 API
+        │   └── journal.js        ← 手帐数据 + 生成 API
         └── mock/
             └── data.js           ← Mock 数据（已弃用，保留兼容）
 ```
@@ -81,50 +84,47 @@ journal/
 ### 弹幕评论
 
 - 照片预览时显示在照片上方横条内
-- `requestAnimationFrame` 驱动动画，GPU 加速（`transform: translateX`）
+- `requestAnimationFrame` 驱动动画，GPU 加速
 - 2 条轨道，互不遮挡
-- 新弹幕即时显示，不等待服务器
+- 新弹幕即时显示
 
 ---
 
-## AI 手帐
+## 探店手帐
 
 ### 设计思路
 
-照搬 test_page 的 UI 风格，无 AI 阶段用模板引擎生成文案。
+整体视觉风格参考纸质旅行手帐：牛皮纸底板、散落照片卡片、手写感文案。
 
 ### 画布
 
-- 牛皮纸底纹，700px 宽画布
-- 照片卡片以 `canvas-sticker` 样式散落排列
-- 支持单指拖拽 + 双指捏合缩放（0.35x ~ 2.0x）
+- 牛皮纸底纹，可拖拽缩放（单指拖拽 + 双指捏合 0.35x ~ 2.0x）
+- 照片卡片以贴纸样式散落排列
 - 右上角 +/- 按钮、双击重置
+
+### 卡片生成
+
+上传照片后，后台自动为每张照片生成手帐卡片（标题、文案、标签），存入数据库。打开手帐页面时秒出，无需等待。
+
+支持手动「刷新手帐」按钮强制重新生成所有卡片。
 
 ### 模板引擎
 
-3 套文案模板，每种模板为不同店铺类型编写特定文案：
+3 套文案模板，切换时卡片标题和文案会变化：
 
 ```
-清新 fresh  → 温柔治愈风    "一场温柔的漫游"
-复古 retro  → 文艺怀旧风    "老饕手记·寻味"
-ins风 ins   → 活泼潮流风    "✨ VIBE 探店日记"
+清新 fresh  → 温柔治愈风
+复古 retro  → 文艺怀旧风
+ins风 ins   → 活泼潮流风
 ```
 
 店铺匹配规则：火锅 / 咖啡 / 甜品 / 酒吧 / 通用
 
-### 数据源
-
-```
-1. journal API (/api/trips/:id/journal) → 优先
-2. album API  (/api/trips/:id/photos)   → 备选
-3. mock 数据                              → 降级
-```
-
 ### 卡片详情
 
 点击画布卡片展开：
-- 大图
-- 模板生成的标题 + 文案
+- 大图预览
+- 生成的标题 + 文案
 - 标签
 - 弹幕评论
 - 上一张/下一张切换
@@ -137,46 +137,32 @@ ins风 ins   → 活泼潮流风    "✨ VIBE 探店日记"
 
 ```sql
 photos (
-  id INTEGER PRIMARY KEY, trip_id TEXT, url TEXT, data_url TEXT,
-  title TEXT, uploader_name TEXT, likes INTEGER, tone TEXT, created_at TEXT
+  id, trip_id, url, data_url, title, uploader_name, likes, tone,
+  created_at, ai_title, ai_narrative, ai_tags, ai_generated_at
 )
 
-photo_comments (
-  id INTEGER PRIMARY KEY, trip_id TEXT, photo_id INTEGER,
-  user_name TEXT, text TEXT, created_at TEXT
-)
-
-reviews (
-  id INTEGER PRIMARY KEY, trip_id TEXT, user_name TEXT,
-  text TEXT, mood TEXT, target_stop_id TEXT, created_at TEXT
-)
+photo_comments (id, trip_id, photo_id, user_name, text, created_at)
+reviews (id, trip_id, user_name, text, mood, target_stop_id, created_at)
 ```
 
-- `photos` 存照片元数据；`url` 指向 `uploads/` 文件，`data_url` 存 base64
+- `photos` 存储照片元数据和生成的卡片内容
 - `photo_comments` 照片弹幕
-- `reviews` 店铺评论（目前仅种子数据）
-
-### 种子数据
-
-首次启动时自动插入 `trip001` 的 4 张 mock 照片和 6 条 mock 评论。
+- `reviews` 店铺评论（种子数据）
 
 ---
 
 ## API 端点
 
 ```
-GET    /api/health                       ← 健康检查
-GET    /api/trips/:tripId                ← 行程概览
-GET    /api/trips/:tripId/photos         ← 照片列表
-POST   /api/trips/:tripId/photos         ← 上传照片
-POST   /api/photos/:photoId/like         ← 点赞
-GET    /api/photos/:photoId/comments     ← 弹幕列表
-POST   /api/photos/:photoId/comments     ← 发弹幕
-GET    /api/trips/:tripId/reviews        ← 评论列表
-POST   /api/trips/:tripId/reviews        ← 发评论
-GET    /api/trips/:tripId/journal        ← 手帐所需全部数据
-POST   /api/trips/:tripId/journal/generate ← 生成手帐（1.5s 模拟延迟）
-GET    /api/templates                    ← 手帐模板列表
+GET    /api/health                                 ← 健康检查
+GET    /api/trips/:tripId/photos                   ← 照片列表
+POST   /api/trips/:tripId/photos                   ← 上传照片
+POST   /api/photos/:photoId/like                   ← 点赞
+GET    /api/photos/:photoId/comments               ← 弹幕列表
+POST   /api/photos/:photoId/comments               ← 发弹幕
+GET    /api/trips/:tripId/journal                  ← 手帐所需全部数据
+POST   /api/trips/:tripId/journal/ai-generate      ← 刷新手帐所有卡片
+GET    /api/templates                              ← 模板列表
 ```
 
 ---
@@ -198,26 +184,12 @@ npm start
 # 预览: http://localhost:4180/journal/frontend/standalone.html
 ```
 
-前端自动检测环境：localhost 时调 `http://localhost:4181`，服务器上走 `/meituan-api/`。
-
 ---
 
 ## 部署
 
 服务器：腾讯云 `211.159.160.11`（SSH 别名 `tripnote`）
 
-```
-/var/www/meituan-vibe/              ← 前端（rsync 同步）
-/opt/journal-backend/               ← 后端（pm2: journal-api，端口 4181）
-```
-
-nginx 路由：
-```
-/meituan/       → /var/www/meituan-vibe/（静态文件）
-/meituan-api/   → 127.0.0.1:4181（proxy_pass 到后端）
-```
-
-部署命令：
 ```bash
 # 前端
 rsync -avz --exclude '.git' --exclude 'journal/backend/node_modules' \
@@ -231,13 +203,18 @@ rsync -avz --exclude 'node_modules' --exclude 'uploads' --exclude 'data.db*' \
 ssh tripnote 'pm2 restart journal-api'
 ```
 
+nginx 路由：
+```
+/meituan/       → /var/www/meituan-vibe/（静态文件）
+/meituan-api/   → 127.0.0.1:4181（proxy_pass）
+```
+
 ---
 
 ## TODO
 
-- [ ] 手帐接真实 AI 生成（Claude API），替代模板规则
-- [ ] 手帐 3 种模板 CSS 视觉风格完全联动
+- [ ] 3 种手帐模板 CSS 视觉风格完全联动
 - [ ] 照片文件接腾讯云 COS 对象存储
 - [ ] 分享接大众点评/微信/小红书
 - [ ] 手帐保存图片 html2canvas → 服务端渲染
-- [ ] 弹幕实时同步（目前仅本地即时显示，其他人刷新才看到）
+- [ ] 弹幕实时同步（目前仅本地即时显示）

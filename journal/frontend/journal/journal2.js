@@ -179,6 +179,78 @@
     });
     el.btnShare.addEventListener('click', handleShare);
     el.btnSave.addEventListener('click', handleSave);
+
+    // 刷新手帐按钮
+    var btnRefresh = document.getElementById('btn-refresh');
+    var loadingOverlay = document.getElementById('loading-overlay');
+    var loadingText = document.getElementById('loading-text');
+    var loadingProgress = document.getElementById('loading-progress');
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', async function() {
+        if (btnRefresh.classList.contains('loading')) return;
+        btnRefresh.classList.add('loading');
+        loadingOverlay.classList.remove('hidden');
+        loadingText.textContent = '正在生成手帐…';
+        loadingProgress.textContent = '准备中…';
+
+        try {
+          var res = await fetch(API + '/api/trips/' + TRIP_ID + '/journal/ai-generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ template: currentTemplate }),
+          });
+          if (!res.ok) {
+            var errData = await res.json();
+            throw new Error(errData.error || '生成失败');
+          }
+          var data = await res.json();
+          var journal = data.journal;
+
+          // 用生成的数据重建卡片
+          cards = [];
+          for (var i = 0; i < journal.cards.length; i++) {
+            var ac = journal.cards[i];
+            var p = _rawPhotos[i] || {};
+            var si = Math.min(i, (_rawStops.length - 1));
+            var stop = _rawStops[si] || {};
+            cards.push({
+              id: p.id,
+              title: ac.title,
+              text: ac.narrative,
+              photoSrc: photoSrc(p),
+              tone: p.tone || 'peach',
+              uploaderName: p.uploaderName || p.uploader_name || '',
+              likes: p.likes || 0,
+              tags: ac.tags || [],
+              stopName: stop.name || '',
+              stopNum: si + 1,
+              relatedReviews: _rawReviews.filter(function(r) { return r.targetStopId && stop.id && r.targetStopId === stop.id; }),
+            });
+          }
+
+          // 更新封面
+          el.journalTitle.textContent = (journal.cover && journal.cover.title) || TEMPLATES[currentTemplate].coverTitle;
+          el.journalSubtitle.textContent = (journal.cover && journal.cover.subtitle) || '';
+
+          loadingText.textContent = '✅ 手帐已更新！';
+          loadingProgress.textContent = journal.cards.length + ' 张卡片';
+          setTimeout(function() {
+            loadingOverlay.classList.add('hidden');
+            btnRefresh.classList.remove('loading');
+          }, 1200);
+
+          renderCanvas();
+        } catch (err) {
+          loadingText.textContent = '❌ ' + (err.message || '生成失败');
+          loadingProgress.textContent = '请稍后重试';
+          setTimeout(function() {
+            loadingOverlay.classList.add('hidden');
+            btnRefresh.classList.remove('loading');
+          }, 2000);
+        }
+      });
+    }
+
     el.btnDetailBack.addEventListener('click', showCanvas);
     el.btnDetailPrev.addEventListener('click', prevCard);
     el.btnDetailNext.addEventListener('click', nextCard);
@@ -210,9 +282,16 @@
         var t = chip.dataset.template;
         if (t === currentTemplate) return;
         currentTemplate = t;
+        // 更新按钮状态
         var chips = el.templateRow.querySelectorAll('.template-chip');
         for (var i = 0; i < chips.length; i++) chips[i].classList.remove('active');
         chip.classList.add('active');
+        // 更新画布主题
+        if (el.canvasContainer) {
+          el.canvasContainer.classList.remove('template-fresh', 'template-retro', 'template-ins');
+          el.canvasContainer.classList.add('template-' + t);
+        }
+        // 重新生成文案并渲染
         buildCardsFromData();
         renderCanvas();
       });
@@ -263,6 +342,9 @@
     // 更新统计标题（显示 tripId 方便调试）
     el.journalSubtitle.textContent = '房间 ' + TRIP_ID + ' · ' + photos.length + ' 张照片 · ' + stops.length + ' 站 · ' + reviews.length + ' 条评论';
 
+    // 初始模板主题
+    if (el.canvasContainer) el.canvasContainer.classList.add('template-fresh');
+
     buildCards(photos, stops, reviews);
     renderCanvas();
   }
@@ -287,18 +369,26 @@
       var feature = stop.feature || (stop.tags || []).slice(0, 3).join(' / ') || '值得一去';
       var comment = '';
       if (reviews.length > i) comment = '「' + reviews[i].text + '」';
+      // 优先用已缓存的 AI 数据（上传照片时后台生成的）
+      var aiTitle = p.aiTitle || p.ai_title || '';
+      var aiNarrative = p.aiNarrative || p.ai_narrative || '';
+      var aiTags = [];
+      try { aiTags = JSON.parse(p.aiTags || p.ai_tags || '[]'); } catch (e) {}
+      var useAi = !!(aiTitle && aiNarrative);
+
       cards.push({
         id: p.id,
-        title: fill(tmpl.title, { num: String(si + 1), name: stop.name || p.title || '', feature: feature, price: stop.price || '??', comment: comment }),
-        text: fill(tmpl.text, { num: String(si + 1), name: stop.name || p.title || '', feature: feature, price: stop.price || '??', comment: comment }),
+        title: useAi ? aiTitle : fill(tmpl.title, { num: String(si + 1), name: stop.name || p.title || '', feature: feature, price: stop.price || '??', comment: comment }),
+        text: useAi ? aiNarrative : fill(tmpl.text, { num: String(si + 1), name: stop.name || p.title || '', feature: feature, price: stop.price || '??', comment: comment }),
         photoSrc: photoSrc(p),
         tone: p.tone || ['peach','mint','pink','blue'][i % 4],
         uploaderName: p.uploaderName || p.uploader_name || p.uploader || '',
         likes: p.likes || 0,
-        tags: (stop.tags || ['探店','美食','旅行']).slice(0, 3),
+        tags: useAi ? aiTags : (stop.tags || ['探店','美食','旅行']).slice(0, 3),
         stopName: stop.name || '',
         relatedReviews: reviews.filter(function(r) { return r.targetStopId && stop.id && r.targetStopId === stop.id; }),
         stopNum: si + 1,
+        aiGenerated: useAi,
       });
     }
   }
@@ -308,8 +398,13 @@
   function renderCanvas() {
     var html = '';
     if (!cards.length) {
-      el.canvasCards.innerHTML = '<div style="padding:60px 20px;text-align:center;color:var(--muted);font-size:14px;">📔<br>还没有照片<br>去共享相册拍几张吧</div>';
-      el.journalSubtitle.textContent = '空画布';
+      el.canvasCards.innerHTML = '<div class="canvas-empty">' +
+        '<div class="canvas-empty-icon">📔</div>' +
+        '<h3>空白画布</h3>' +
+        '<p>还没有照片，去共享相册拍几张吧</p>' +
+        '<p class="canvas-empty-hint">拍照上传后，AI 会自动为每张照片写手帐卡片</p>' +
+      '</div>';
+      el.journalSubtitle.textContent = '等待第一张照片';
     } else {
       // 画布 700px 宽，卡片散落布局
       var cols = 3, w = 155, h = 210, gx = 30, gy = 24, ox = 20, oy = 16;
@@ -355,6 +450,8 @@
   function showDetail() {
     var c = cards[detailIndex];
     if (!c) return;
+    // 模板配色应用到详情
+    el.detailView.className = 'screen template-' + currentTemplate;
     el.detailTitle.textContent = c.stopName || '卡片详情';
     el.detailSubtitle.textContent = '第' + (detailIndex + 1) + '张 · ' + TEMPLATES[currentTemplate].name;
     el.detailPhoto.style.backgroundImage = c.photoSrc ? 'url(\'' + c.photoSrc + '\')' : '';

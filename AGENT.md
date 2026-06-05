@@ -8,7 +8,7 @@
 |----|------|
 | B | 路线规划（screen 04-12）、房间系统 |
 | A | 实时行程卡（screen 13、15）、评论 |
-| 我 (Jan) | 共享相册 + AI 手帐 + 独立后端 |
+| 我 (Jan) | 共享相册 + 探店手帐 + 独立后端 |
 
 ## 项目结构
 
@@ -29,7 +29,7 @@ meituan-vibe-mvp/
     │   │   ├── album.html
     │   │   ├── album.css
     │   │   └── album.js
-    │   └── journal/             ← AI 手帐（独立页面）
+    │   └── journal/             ← 探店手帐（独立页面）
     │       ├── journal.html
     │       ├── journal.css
     │       └── journal.js
@@ -99,7 +99,7 @@ meituan-vibe-mvp/
 | 13 | 实时行程卡 | A | 点"确认行程" |
 | 14 | ~~共享相册~~ | **已删除** | screen-14 HTML 已移除 |
 | 15 | 评论浮层 | A | 点底部「评论」Tab |
-| 18 | AI 手帐 | → 跳转 journal | 结束行程→"确认生成电子手帐" |
+| 18 | 探店手帐 | → 跳转 journal | 结束行程→"确认生成电子手帐" |
 | 19 | 照片预览 | 手帐 | 点手帐里的照片 |
 
 **Screen 14** 的 HTML 已从 `index.html` 删除。相册功能迁移到 `journal/frontend/album/album.html`，通过 `window.location.href` 跳转，携带 `tripId` 和 `userName` 参数。
@@ -148,7 +148,7 @@ POST   /api/trips/:tripId/reviews       ← 发评论
 
 ---
 
-## ✍️ AI 手帐（journal/）
+## ✍️ 探店手帐（journal/）
 
 ### 设计
 照搬 test_page 的 UI 风格：牛皮纸配色、画布卡片、暖色系。
@@ -243,7 +243,9 @@ claude
 
 ## 已知问题 / TODO
 
-- [ ] 手帐 AI 生成目前是模板规则拼装，未接真实 AI（Claude API）
+- [ ] 3 种手帐模板 CSS 视觉风格完全联动
+- [ ] 照片文件接腾讯云 COS 对象存储
+- [ ] 手帐保存图片 html2canvas → 服务端渲染
 - [ ] 3 种手帐模板只影响文案风格，CSS 视觉风格未完全联动
 - [ ] 分享目前用系统分享 API 和剪贴板，未接大众点评/微信/小红书
 - [ ] 手帐保存图片依赖 html2canvas CDN

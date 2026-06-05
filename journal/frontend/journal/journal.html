@@ -21,14 +21,14 @@
           </div>
         </header>
 
-        <!-- 模板 + AI -->
+        <!-- 模板 -->
         <div class="template-row" id="template-row">
           <button class="template-chip active" data-template="fresh">🍃 清新</button>
           <button class="template-chip" data-template="retro">📜 复古</button>
           <button class="template-chip" data-template="ins">💗 ins风</button>
         </div>
 
-        <button class="ai-generate-btn" id="btn-ai-generate">
+        <button class="refresh-btn" id="btn-refresh">
           <span>✨ 刷新手帐</span>
         </button>
 
@@ -87,21 +87,13 @@
         </nav>
         <div class="safe-area"></div>
 
-        <!-- AI 生成中浮层 -->
-        <div class="ai-loading-overlay hidden" id="ai-loading">
-          <div class="ai-loading-card">
-            <div class="ai-loading-spinner"></div>
-            <p id="ai-loading-text">AI 正在生成手帐…</p>
-            <small id="ai-loading-progress"></small>
+        <!-- 生成中浮层 -->
+        <div class="loading-overlay hidden" id="loading-overlay">
+          <div class="loading-card">
+            <div class="loading-spinner"></div>
+            <p id="loading-text">正在生成手帐…</p>
+            <small id="loading-progress"></small>
           </div>
-        </div>
-      </div>
-
-      <!-- 卡片详情 AI 浮层 -->
-      <div class="ai-loading-overlay hidden" id="ai-detail-loading">
-        <div class="ai-loading-card">
-          <div class="ai-loading-spinner"></div>
-          <p>AI 正在为这张照片写文案…</p>
         </div>
       </div>
 

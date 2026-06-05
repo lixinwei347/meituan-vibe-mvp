@@ -180,18 +180,18 @@
     el.btnShare.addEventListener('click', handleShare);
     el.btnSave.addEventListener('click', handleSave);
 
-    // AI 生成按钮
-    var btnAi = document.getElementById('btn-ai-generate');
-    var aiLoading = document.getElementById('ai-loading');
-    var aiLoadingText = document.getElementById('ai-loading-text');
-    var aiLoadingProgress = document.getElementById('ai-loading-progress');
-    if (btnAi) {
-      btnAi.addEventListener('click', async function() {
-        if (btnAi.classList.contains('loading')) return;
-        btnAi.classList.add('loading');
-        aiLoading.classList.remove('hidden');
-        aiLoadingText.textContent = 'AI 正在生成手帐…';
-        aiLoadingProgress.textContent = '准备中…';
+    // 刷新手帐按钮
+    var btnRefresh = document.getElementById('btn-refresh');
+    var loadingOverlay = document.getElementById('loading-overlay');
+    var loadingText = document.getElementById('loading-text');
+    var loadingProgress = document.getElementById('loading-progress');
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', async function() {
+        if (btnRefresh.classList.contains('loading')) return;
+        btnRefresh.classList.add('loading');
+        loadingOverlay.classList.remove('hidden');
+        loadingText.textContent = '正在生成手帐…';
+        loadingProgress.textContent = '准备中…';
 
         try {
           var res = await fetch(API + '/api/trips/' + TRIP_ID + '/journal/ai-generate', {
@@ -201,12 +201,12 @@
           });
           if (!res.ok) {
             var errData = await res.json();
-            throw new Error(errData.error || 'AI 生成失败');
+            throw new Error(errData.error || '生成失败');
           }
           var data = await res.json();
           var journal = data.journal;
 
-          // 用 AI 数据重建卡片
+          // 用生成的数据重建卡片
           cards = [];
           for (var i = 0; i < journal.cards.length; i++) {
             var ac = journal.cards[i];
@@ -225,7 +225,6 @@
               stopName: stop.name || '',
               stopNum: si + 1,
               relatedReviews: _rawReviews.filter(function(r) { return r.targetStopId && stop.id && r.targetStopId === stop.id; }),
-              aiGenerated: true,
             });
           }
 
@@ -233,20 +232,20 @@
           el.journalTitle.textContent = (journal.cover && journal.cover.title) || TEMPLATES[currentTemplate].coverTitle;
           el.journalSubtitle.textContent = (journal.cover && journal.cover.subtitle) || '';
 
-          aiLoadingText.textContent = '✅ 手帐生成完毕！';
-          aiLoadingProgress.textContent = journal.cards.length + ' 张卡片';
+          loadingText.textContent = '✅ 手帐已更新！';
+          loadingProgress.textContent = journal.cards.length + ' 张卡片';
           setTimeout(function() {
-            aiLoading.classList.add('hidden');
-            btnAi.classList.remove('loading');
+            loadingOverlay.classList.add('hidden');
+            btnRefresh.classList.remove('loading');
           }, 1200);
 
           renderCanvas();
         } catch (err) {
-          aiLoadingText.textContent = '❌ ' + (err.message || '生成失败');
-          aiLoadingProgress.textContent = '请稍后重试';
+          loadingText.textContent = '❌ ' + (err.message || '生成失败');
+          loadingProgress.textContent = '请稍后重试';
           setTimeout(function() {
-            aiLoading.classList.add('hidden');
-            btnAi.classList.remove('loading');
+            loadingOverlay.classList.add('hidden');
+            btnRefresh.classList.remove('loading');
           }, 2000);
         }
       });
