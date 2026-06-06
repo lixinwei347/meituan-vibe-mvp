@@ -1,0 +1,586 @@
+(function () {
+  var API = window.location.hostname === 'localhost' ? 'http://localhost:4181' : '/meituan-api';
+  var TRIP_ID = getTripId();
+  var currentTemplate = 'fresh';
+  var cards = [];
+  var detailIndex = 0;
+
+  // ===== 画布拖拽 & 缩放 =====
+  var canvasZoom = 0.58;
+  var canvasPan = { x: 0, y: 0 };
+  var canvasDragState = null;
+  var canvasPointers = new Map();
+  var canvasPinchState = null;
+
+  var el = {
+    canvasView: document.getElementById('canvas-view'),
+    detailView: document.getElementById('detail-view'),
+    canvasContainer: document.getElementById('journal-canvas'),
+    canvasTransform: document.getElementById('canvas-transform'),
+    canvasCards: document.getElementById('canvas-cards'),
+    journalTitle: document.getElementById('journal-title'),
+    journalSubtitle: document.getElementById('journal-subtitle'),
+    btnBack: document.getElementById('btn-back'),
+    btnHome: document.getElementById('btn-home'),
+    btnShare: document.getElementById('btn-share'),
+    btnSave: document.getElementById('btn-save'),
+    templateRow: document.getElementById('template-row'),
+    detailPhoto: document.getElementById('detail-photo'),
+    detailKicker: document.getElementById('detail-kicker'),
+    detailHeading: document.getElementById('detail-heading'),
+    detailText: document.getElementById('detail-text'),
+    detailTags: document.getElementById('detail-tags'),
+    detailComments: document.getElementById('detail-comments'),
+    detailLikes: document.getElementById('detail-likes'),
+    detailTitle: document.getElementById('detail-title'),
+    detailSubtitle: document.getElementById('detail-subtitle'),
+    btnDetailBack: document.getElementById('btn-detail-back'),
+    btnDetailPrev: document.getElementById('btn-detail-prev'),
+    btnDetailNext: document.getElementById('btn-detail-next'),
+  };
+
+  // ==================== 模板引擎 ====================
+  var TEMPLATES = {
+    fresh: {
+      name: '清新', coverTitle: '探店手帐',
+      stopTemplates: [
+        { match: '火锅', title: '热气腾腾的第{num}站', text: '锅底沸腾的那一刻，所有等待都值得。{name}的{feature}，人均¥{price}。{comment}' },
+        { match: '咖啡', title: '下午{num}点的咖啡时光', text: '阳光穿过窗户，洒在杯沿。{name}，{feature}，这一刻慢下来就很好。{comment}' },
+        { match: '甜品', title: '第{num}口甜', text: '{name}的{feature}。生活需要一点甜，人均¥{price}，这口刚刚好。{comment}' },
+        { match: '酒吧|小酒馆|酒', title: '微醺的第{num}站', text: '夜色降临，{name}的{feature}。有人在这里把故事讲完。{comment}' },
+        { match: '*', title: '旅途第{num}站：{name}', text: '{feature}。这是旅途里值得被记住的一站。{comment}' },
+      ],
+    },
+    retro: {
+      name: '复古', coverTitle: '老饕手记',
+      stopTemplates: [
+        { match: '火锅', title: '老店寻味 · 第{num}回', text: '{name}，京城老味道。{feature}，¥{price}一人。汤头翻滚间，是几代人的舌尖记忆。{comment}' },
+        { match: '咖啡', title: '午后小记 · 第{num}杯', text: '穿过胡同，拐进{name}。{feature}，像极了老电影里的某个下午。{comment}' },
+        { match: '甜品', title: '甜蜜旧事 · 第{num}味', text: '{name}的{feature}，¥{price}。甜是这座城市最温柔的口音。{comment}' },
+        { match: '酒吧|小酒馆|酒', title: '夜色手帖 · 第{num}盏', text: '入夜，{name}的{feature}。一杯敬今晚，一杯敬同行。{comment}' },
+        { match: '*', title: '旅途札记 · 第{num}页', text: '{name}。{feature}。这段记忆会泛黄，但不会褪色。{comment}' },
+      ],
+    },
+    ins: {
+      name: 'ins风', coverTitle: '探店日记',
+      stopTemplates: [
+        { match: '火锅', title: '🔥 第{num}家 必打卡火锅', text: '{name}直接封神！{feature}，¥{price}吃到撑。随手一拍就是爆款。{comment}' },
+        { match: '咖啡', title: '☕️ 第{num}家 超出片咖啡馆', text: '{name}！{feature}！氛围感拉满，朋友圈素材+1。{comment}' },
+        { match: '甜品', title: '🍰 第{num}家 甜品界天花板', text: '{name}！{feature}！¥{price}！冲就完了！{comment}' },
+        { match: '酒吧|小酒馆|酒', title: '🍸 第{num}家 氛围感酒吧', text: '{name}，{feature}。氛围感直接拉满，收尾必选。{comment}' },
+        { match: '*', title: '📍 第{num}站 必收藏', text: '{name}——{feature}。收藏不亏，去了就知道。{comment}' },
+      ],
+    },
+  };
+
+  function getStopTemplate(stopName) {
+    var tmpls = TEMPLATES[currentTemplate].stopTemplates;
+    for (var i = 0; i < tmpls.length; i++) {
+      if (tmpls[i].match === '*') continue;
+      if (new RegExp(tmpls[i].match, 'i').test(stopName)) return tmpls[i];
+    }
+    return tmpls[tmpls.length - 1];
+  }
+
+  function fill(str, vars) {
+    var s = str;
+    for (var k in vars) { if (vars.hasOwnProperty(k)) s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k] || ''); }
+    return s;
+  }
+
+  // ===== 画布变换 =====
+  function applyCanvasTransform() {
+    if (!el.canvasTransform) return;
+    el.canvasTransform.style.transform = 'translate(' + Math.round(canvasPan.x) + 'px, ' + Math.round(canvasPan.y) + 'px) scale(' + canvasZoom.toFixed(2) + ')';
+  }
+
+  function clampCanvasPan(p, z) {
+    z = z || canvasZoom;
+    var maxX = 700 * z * 0.5;
+    var maxY = 800 * z * 0.4;
+    return { x: Math.min(maxX, Math.max(-maxX, p.x)), y: Math.min(maxY, Math.max(-maxY, p.y)) };
+  }
+
+  function setCanvasZoom(z) {
+    canvasZoom = Math.min(2.0, Math.max(0.35, Number(z.toFixed(2))));
+    canvasPan = clampCanvasPan(canvasPan, canvasZoom);
+    applyCanvasTransform();
+  }
+
+  function dist(a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
+
+  function startCanvasDrag(e) {
+    canvasPointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+    if (canvasPointers.size === 2) {
+      var pts = Array.from(canvasPointers.values());
+      canvasPinchState = { startDist: dist(pts[0], pts[1]), startZoom: canvasZoom, startPan: { x: canvasPan.x, y: canvasPan.y } };
+      canvasDragState = null;
+      return;
+    }
+    canvasDragState = { pointerId: e.pointerId, startX: e.clientX, startY: e.clientY, panX: canvasPan.x, panY: canvasPan.y };
+    el.canvasContainer.classList.add('dragging');
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function moveCanvasDrag(e) {
+    if (canvasPointers.has(e.pointerId)) canvasPointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+    if (canvasPinchState && canvasPointers.size >= 2) {
+      var pts = Array.from(canvasPointers.values()).slice(0, 2);
+      var ratio = dist(pts[0], pts[1]) / Math.max(1, canvasPinchState.startDist);
+      setCanvasZoom(canvasPinchState.startZoom * ratio);
+      canvasPan = clampCanvasPan(canvasPinchState.startPan, canvasZoom);
+      applyCanvasTransform();
+      return;
+    }
+    if (!canvasDragState) return;
+    canvasPan = clampCanvasPan({
+      x: canvasDragState.panX + e.clientX - canvasDragState.startX,
+      y: canvasDragState.panY + e.clientY - canvasDragState.startY
+    });
+    applyCanvasTransform();
+  }
+
+  function endCanvasDrag(e) {
+    if (e && e.pointerId) canvasPointers.delete(e.pointerId);
+    if (canvasPointers.size < 2) canvasPinchState = null;
+    canvasDragState = null;
+    el.canvasContainer.classList.remove('dragging');
+  }
+
+  // ==================== 数据加载 ====================
+
+  function getTripId() {
+    var params = new URLSearchParams(window.location.search);
+    var id = params.get('tripId');
+    // 如果是默认值 trip001 且 URL 里没有显式传，尝试从 sessionStorage 恢复
+    if (!id || id === 'trip001') {
+      var saved = sessionStorage.getItem('meituan_room');
+      if (saved) return saved;
+    }
+    return id || 'trip001';
+  }
+
+  function photoSrc(p) {
+    if (p.dataUrl || p.data_url) return p.dataUrl || p.data_url;
+    if (p.url) {
+      if (p.url.indexOf('http') === 0) return p.url;
+      return API + p.url;
+    }
+    return '';
+  }
+
+  async function init() {
+    el.btnBack.addEventListener('click', function() {
+      var base = window.location.hostname === 'localhost' ? '../../index.html' : '/meituan/index.html';
+      window.location.href = base + '?room=' + encodeURIComponent(TRIP_ID) + '#13';
+    });
+    el.btnHome.addEventListener('click', function() {
+      window.location.href = (window.location.hostname === 'localhost' ? '../../index.html' : '/meituan/index.html');
+    });
+    el.btnShare.addEventListener('click', handleShare);
+    el.btnSave.addEventListener('click', handleSave);
+
+    // 分享预览按钮
+    var btnClose = document.getElementById('share-btn-close');
+    var btnSaveImg = document.getElementById('share-btn-save');
+    if (btnClose) btnClose.addEventListener('click', closeShare);
+    if (btnSaveImg) btnSaveImg.addEventListener('click', saveShareCard);
+
+    // 点击背景关闭
+    var shareBg = document.querySelector('.share-overlay-bg');
+    if (shareBg) shareBg.addEventListener('click', closeShare);
+
+    // 刷新手帐按钮
+    var btnRefresh = document.getElementById('btn-refresh');
+    var loadingOverlay = document.getElementById('loading-overlay');
+    var loadingText = document.getElementById('loading-text');
+    var loadingProgress = document.getElementById('loading-progress');
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', async function() {
+        if (btnRefresh.classList.contains('loading')) return;
+        btnRefresh.classList.add('loading');
+        loadingOverlay.classList.remove('hidden');
+        loadingText.textContent = '正在生成手帐…';
+        loadingProgress.textContent = '准备中…';
+
+        try {
+          var res = await fetch(API + '/api/trips/' + TRIP_ID + '/journal/ai-generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ template: currentTemplate }),
+          });
+          if (!res.ok) {
+            var errData = await res.json();
+            throw new Error(errData.error || '生成失败');
+          }
+          var data = await res.json();
+          var journal = data.journal;
+
+          // 用生成的数据重建卡片
+          cards = [];
+          for (var i = 0; i < journal.cards.length; i++) {
+            var ac = journal.cards[i];
+            var p = _rawPhotos[i] || {};
+            var si = Math.min(i, (_rawStops.length - 1));
+            var stop = _rawStops[si] || {};
+            cards.push({
+              id: p.id,
+              title: ac.title,
+              text: ac.narrative,
+              photoSrc: photoSrc(p),
+              tone: p.tone || 'peach',
+              uploaderName: p.uploaderName || p.uploader_name || '',
+              likes: p.likes || 0,
+              tags: ac.tags || [],
+              stopName: stop.name || '',
+              stopNum: si + 1,
+              relatedReviews: _rawReviews.filter(function(r) { return r.targetStopId && stop.id && r.targetStopId === stop.id; }),
+            });
+          }
+
+          // 更新封面
+          el.journalTitle.textContent = (journal.cover && journal.cover.title) || TEMPLATES[currentTemplate].coverTitle;
+          el.journalSubtitle.textContent = (journal.cover && journal.cover.subtitle) || '';
+
+          loadingText.textContent = '✅ 手帐已更新！';
+          loadingProgress.textContent = journal.cards.length + ' 张卡片';
+          setTimeout(function() {
+            loadingOverlay.classList.add('hidden');
+            btnRefresh.classList.remove('loading');
+          }, 1200);
+
+          renderCanvas();
+        } catch (err) {
+          loadingText.textContent = '❌ ' + (err.message || '生成失败');
+          loadingProgress.textContent = '请稍后重试';
+          setTimeout(function() {
+            loadingOverlay.classList.add('hidden');
+            btnRefresh.classList.remove('loading');
+          }, 2000);
+        }
+      });
+    }
+
+    el.btnDetailBack.addEventListener('click', showCanvas);
+    el.btnDetailPrev.addEventListener('click', prevCard);
+    el.btnDetailNext.addEventListener('click', nextCard);
+
+    // 画布拖拽 & 缩放
+    var zoomInBtn = document.getElementById('canvas-zoom-in');
+    var zoomOutBtn = document.getElementById('canvas-zoom-out');
+    var zoomResetBtn = document.getElementById('canvas-zoom-reset');
+    if (zoomInBtn) zoomInBtn.addEventListener('click', function() { setCanvasZoom(canvasZoom + 0.15); });
+    if (zoomOutBtn) zoomOutBtn.addEventListener('click', function() { setCanvasZoom(canvasZoom - 0.15); });
+    if (zoomResetBtn) zoomResetBtn.addEventListener('click', function() { canvasZoom = 0.58; canvasPan = { x: 0, y: 0 }; applyCanvasTransform(); });
+
+    if (el.canvasContainer) {
+      el.canvasContainer.addEventListener('pointerdown', startCanvasDrag);
+      el.canvasContainer.addEventListener('pointermove', moveCanvasDrag);
+      el.canvasContainer.addEventListener('pointerup', endCanvasDrag);
+      el.canvasContainer.addEventListener('pointercancel', endCanvasDrag);
+      el.canvasContainer.addEventListener('pointerleave', endCanvasDrag);
+      // 双击重置
+      el.canvasContainer.addEventListener('dblclick', function() {
+        canvasZoom = 0.58; canvasPan = { x: 0, y: 0 }; applyCanvasTransform();
+      });
+    }
+
+    if (el.templateRow) {
+      el.templateRow.addEventListener('click', function(e) {
+        var chip = e.target.closest('.template-chip');
+        if (!chip) return;
+        var t = chip.dataset.template;
+        if (t === currentTemplate) return;
+        currentTemplate = t;
+        // 更新按钮状态
+        var chips = el.templateRow.querySelectorAll('.template-chip');
+        for (var i = 0; i < chips.length; i++) chips[i].classList.remove('active');
+        chip.classList.add('active');
+        // 更新画布主题
+        if (el.canvasContainer) {
+          el.canvasContainer.classList.remove('template-fresh', 'template-retro', 'template-ins');
+          el.canvasContainer.classList.add('template-' + t);
+        }
+        // 重新生成文案并渲染
+        buildCardsFromData();
+        renderCanvas();
+      });
+    }
+
+    // 加载真实数据
+    var photos = [], stops = [], reviews = [], members = [], tripDate = '';
+    var apiOk = false;
+    try {
+      var apiUrl = API + '/api/trips/' + TRIP_ID + '/journal?_=' + Date.now();
+      var res = await fetch(apiUrl);
+      if (res.ok) {
+        var data = await res.json();
+        stops = (data.trip && data.trip.stops) || [];
+        members = (data.trip && data.trip.members) || [];
+        tripDate = (data.trip && data.trip.date) || '';
+        photos = data.photos || [];
+        reviews = data.reviews || [];
+        apiOk = true;
+      } else {
+        console.warn('[journal] API error:', res.status);
+      }
+    } catch (e) {
+      console.warn('[journal] API fetch failed:', e.message || e);
+    }
+    // 如果 journal API 没照片，单独查 album API
+    if (!apiOk || !photos.length) {
+      try {
+        var albumRes = await fetch(API + '/api/trips/' + TRIP_ID + '/photos?_=' + Date.now());
+        if (albumRes.ok) { var ad = await albumRes.json(); photos = ad.photos || []; apiOk = true; }
+      } catch (e2) { console.warn('[journal] album API failed:', e2.message || e2); }
+    }
+    // 如果还没照片，用 mock 兜底
+    if (!apiOk || !photos.length) {
+      console.warn('[journal] 使用 mock 数据, apiOk=' + apiOk + ', photos=' + photos.length);
+      photos = getMockPhotos(); stops = getMockStops(); reviews = getMockReviews(); members = getMockMembers();
+    }
+
+    console.log('[journal] TRIP_ID=' + TRIP_ID + ' API=' + API + ' photos=' + photos.length);
+
+    // 从真实照片生成路线（每条照片视为一站）
+    if (!stops.length && photos.length) {
+      stops = photos.map(function(p, i) {
+        return { id: 'photo-' + i, name: p.title || '第' + (i + 1) + '张', price: '--', feature: p.uploaderName || '', tags: [] };
+      });
+    }
+
+    // 更新统计标题（显示 tripId 方便调试）
+    el.journalSubtitle.textContent = '房间 ' + TRIP_ID + ' · ' + photos.length + ' 张照片 · ' + stops.length + ' 站 · ' + reviews.length + ' 条评论';
+
+    // 初始模板主题
+    if (el.canvasContainer) el.canvasContainer.classList.add('template-fresh');
+
+    buildCards(photos, stops, reviews);
+    renderCanvas();
+  }
+
+  // ==================== 构建卡片 ====================
+
+  var _rawPhotos = [], _rawStops = [], _rawReviews = [];
+
+  function buildCards(photos, stops, reviews) {
+    _rawPhotos = photos; _rawStops = stops; _rawReviews = reviews;
+    buildCardsFromData();
+  }
+
+  function buildCardsFromData() {
+    var photos = _rawPhotos, stops = _rawStops, reviews = _rawReviews;
+    cards = [];
+    for (var i = 0; i < photos.length; i++) {
+      var p = photos[i];
+      var si = Math.min(i, stops.length - 1);
+      var stop = stops[si] || {};
+      var tmpl = getStopTemplate(stop.name || '');
+      var feature = stop.feature || (stop.tags || []).slice(0, 3).join(' / ') || '值得一去';
+      var comment = '';
+      if (reviews.length > i) comment = '「' + reviews[i].text + '」';
+      // 优先用已缓存的 AI 数据（上传照片时后台生成的）
+      var aiTitle = p.aiTitle || p.ai_title || '';
+      var aiNarrative = p.aiNarrative || p.ai_narrative || '';
+      var aiTags = [];
+      try { aiTags = JSON.parse(p.aiTags || p.ai_tags || '[]'); } catch (e) {}
+      var useAi = !!(aiTitle && aiNarrative);
+
+      cards.push({
+        id: p.id,
+        title: useAi ? aiTitle : fill(tmpl.title, { num: String(si + 1), name: stop.name || p.title || '', feature: feature, price: stop.price || '??', comment: comment }),
+        text: useAi ? aiNarrative : fill(tmpl.text, { num: String(si + 1), name: stop.name || p.title || '', feature: feature, price: stop.price || '??', comment: comment }),
+        photoSrc: photoSrc(p),
+        tone: p.tone || ['peach','mint','pink','blue'][i % 4],
+        uploaderName: p.uploaderName || p.uploader_name || p.uploader || '',
+        likes: p.likes || 0,
+        tags: useAi ? aiTags : (stop.tags || ['探店','美食','旅行']).slice(0, 3),
+        stopName: stop.name || '',
+        relatedReviews: reviews.filter(function(r) { return r.targetStopId && stop.id && r.targetStopId === stop.id; }),
+        stopNum: si + 1,
+        aiGenerated: useAi,
+      });
+    }
+  }
+
+  // ==================== 画布 ====================
+
+  function renderCanvas() {
+    var html = '';
+    if (!cards.length) {
+      el.canvasCards.innerHTML = '<div class="canvas-empty">' +
+        '<div class="canvas-empty-icon">📔</div>' +
+        '<h3>空白画布</h3>' +
+        '<p>还没有照片，去共享相册拍几张吧</p>' +
+        '<p class="canvas-empty-hint">拍照上传后，会自动为每张照片写手帐卡片</p>' +
+      '</div>';
+      el.journalSubtitle.textContent = '等待第一张照片';
+    } else {
+      // 画布 700px 宽，卡片散落布局
+      var cols = 3, w = 155, h = 210, gx = 30, gy = 24, ox = 20, oy = 16;
+      for (var i = 0; i < cards.length; i++) {
+        var c = cards[i];
+        var col = i % cols, row = Math.floor(i / cols);
+        var left = ox + col * (w + gx);
+        var top = oy + row * (h + gy);
+        var r = (col === 0 ? -5 : 6) + (row % 3 === 1 ? 3 : row % 3 === 2 ? -2 : 0);
+
+        html += '<button class="canvas-sticker" style="left:' + left + 'px; top:' + top + 'px; transform: rotate(' + r + 'deg);" data-index="' + i + '">' +
+          '<span class="sticker-step">' + String(c.stopNum).padStart(2, '0') + '</span>' +
+          '<div class="sticker-image" style="background-image: url(\'' + c.photoSrc + '\')"></div>' +
+          '<strong>' + esc(c.title.slice(0, 20)) + '</strong>' +
+          '<small>' + esc(c.stopName) + '</small>' +
+        '</button>';
+      }
+      var rows = Math.ceil(cards.length / 2);
+      el.canvasCards.style.minHeight = (oy + rows * (h + gy) + 20) + 'px';
+    }
+    // 不要覆盖 subtitle（已在 init 中设为真实数据）
+
+    el.canvasCards.innerHTML = html;
+    el.journalTitle.textContent = TEMPLATES[currentTemplate].coverTitle + ' · ' + _rawPhotos.length + '张';
+
+    // 绑定点击
+    var stickers = el.canvasCards.querySelectorAll('.canvas-sticker');
+    for (var j = 0; j < stickers.length; j++) {
+      stickers[j].addEventListener('click', function(e) {
+        // 拖拽时不触发点击
+        if (canvasDragState) return;
+        e.stopPropagation();
+        detailIndex = parseInt(this.dataset.index);
+        showDetail();
+      });
+    }
+
+    applyCanvasTransform();
+  }
+
+  // ==================== 卡片详情 ====================
+
+  function showDetail() {
+    var c = cards[detailIndex];
+    if (!c) return;
+    // 模板配色应用到详情
+    el.detailView.className = 'screen template-' + currentTemplate;
+    el.detailTitle.textContent = c.stopName || '卡片详情';
+    el.detailSubtitle.textContent = '第' + (detailIndex + 1) + '张 · ' + TEMPLATES[currentTemplate].name;
+    el.detailPhoto.style.backgroundImage = c.photoSrc ? 'url(\'' + c.photoSrc + '\')' : '';
+    el.detailKicker.textContent = '第' + c.stopNum + '站';
+    el.detailHeading.textContent = c.title;
+    el.detailText.textContent = c.text;
+    el.detailTags.innerHTML = c.tags.map(function(t) {
+      return '<span>' + esc(t) + '</span>';
+    }).join('');
+    if (c.relatedReviews && c.relatedReviews.length) {
+      el.detailComments.innerHTML = '<h3>💬 弹幕</h3>' + c.relatedReviews.map(function(r) {
+        return '<div class="detail-comment-item"><strong>' + esc(r.userName || '匿名') + '</strong>：' + esc(r.text) + '</div>';
+      }).join('');
+    } else { el.detailComments.innerHTML = ''; }
+    el.detailLikes.textContent = '♡ ' + c.likes + ' 赞 · ' + esc(c.uploaderName);
+    el.btnDetailPrev.style.opacity = detailIndex > 0 ? '1' : '0.3';
+    el.btnDetailNext.style.opacity = detailIndex < cards.length - 1 ? '1' : '0.3';
+    el.canvasView.classList.add('hidden');
+    el.detailView.classList.remove('hidden');
+  }
+
+  function showCanvas() {
+    el.detailView.classList.add('hidden');
+    el.canvasView.classList.remove('hidden');
+  }
+
+  function prevCard() { if (detailIndex > 0) { detailIndex--; showDetail(); } }
+  function nextCard() { if (detailIndex < cards.length - 1) { detailIndex++; showDetail(); } }
+
+  // ==================== Mock ====================
+
+  function getMockStops() {
+    return [
+      { id: 'hotpot', name: '潮汕牛肉火锅 西单店', price: 96, feature: '现切牛肉 / 不太辣 / 适合聚餐', tags: ['不太辣','地铁直达','适合聚餐'] },
+      { id: 'coffee', name: '城市露台咖啡', price: 42, feature: '露台景观 / 适合拍照 / 安静聊天', tags: ['拍照','可聊天'] },
+      { id: 'dessert', name: '漫糖甜品工坊', price: 38, feature: '招牌布丁 / 饭后甜品 / 可打包', tags: ['少排队','适合拍照'] },
+      { id: 'bar', name: '湖畔小酒馆', price: 88, feature: '夜景小酌 / 适合收尾', tags: ['夜景','适合收尾'] },
+    ];
+  }
+  function getMockPhotos() {
+    return [
+      { id: 1, title: '火锅店合照', uploaderName: 'Xinwei', likes: 6, tone: 'peach', dataUrl: '' },
+      { id: 2, title: '露台咖啡拉花', uploaderName: 'Yuki', likes: 3, tone: 'mint', dataUrl: '' },
+      { id: 3, title: '甜品拼盘九宫格', uploaderName: 'Leo', likes: 8, tone: 'pink', dataUrl: '' },
+      { id: 4, title: '湖畔夜景', uploaderName: 'Mia', likes: 5, tone: 'blue', dataUrl: '' },
+    ];
+  }
+  function getMockReviews() {
+    return [
+      { userName: 'Xinwei', text: '牛肉真的嫩！' }, { userName: 'Yuki', text: '拍照超出片' },
+      { userName: 'Leo', text: '四个人刚好' }, { userName: 'Mia', text: '完美收尾' },
+    ];
+  }
+  function getMockMembers() {
+    return [
+      { id: 'u1', name: 'Xinwei', avatar: 'X', color: '#FFD700' },
+      { id: 'u2', name: 'Yuki',   avatar: 'Y', color: '#4CAF50' },
+      { id: 'u3', name: 'Leo',    avatar: 'L', color: '#2196F3' },
+      { id: 'u4', name: 'Mia',    avatar: 'M', color: '#E91E63' },
+    ];
+  }
+
+  // ==================== 工具 ====================
+
+  async function handleShare() {
+    var overlay = document.getElementById('share-overlay');
+    var photoEl = document.getElementById('share-card-photo');
+    var titleEl = document.getElementById('share-card-title');
+    var statsEl = document.getElementById('share-card-stats');
+    var routeEl = document.getElementById('share-card-route');
+
+    // 填数据
+    var first = cards[0];
+    if (first && first.photoSrc) photoEl.style.backgroundImage = 'url(\'' + first.photoSrc + '\')';
+    titleEl.textContent = el.journalTitle.textContent || '探店手帐';
+    statsEl.innerHTML = '<span>📷 ' + cards.length + '张</span><span>📍 ' + cards.length + '站</span>';
+    routeEl.textContent = cards.map(function(c) { return c.stopName; }).filter(Boolean).slice(0, 4).join(' → ') || '探店路线';
+
+    overlay.classList.remove('hidden');
+  }
+
+  function closeShare() {
+    document.getElementById('share-overlay').classList.add('hidden');
+  }
+
+  async function saveShareCard() {
+    toast('正在生成图片…');
+    try {
+      var h2c = (await import('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.esm.js')).default;
+      var cvs = await h2c(document.getElementById('share-preview-card'), { backgroundColor: null, scale: 2 });
+      var link = document.createElement('a');
+      link.download = '手帐分享-' + TRIP_ID + '.png';
+      link.href = cvs.toDataURL('image/png');
+      link.click();
+      toast('图片已保存');
+    } catch (err) {
+      toast('保存失败，请重试');
+    }
+  }
+
+  async function handleSave() {
+    toast('正在生成图片…');
+    try {
+      var h2c = (await import('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.esm.js')).default;
+      var cvs = await h2c(el.canvasView, { backgroundColor: '#efe0c5', scale: 2 });
+      var link = document.createElement('a'); link.download = '手帐-' + TRIP_ID + '.png'; link.href = cvs.toDataURL('image/png'); link.click();
+      toast('已保存');
+    } catch (err) { window.print(); toast('请使用浏览器保存'); }
+  }
+
+  function esc(s) { if (!s) return ''; return ('' + s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  function toast(msg) {
+    var t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:rgba(30,37,40,0.92);color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;z-index:999;';
+    t.textContent = msg; document.body.appendChild(t);
+    setTimeout(function() { t.style.transition = 'opacity .4s'; t.style.opacity = '0'; });
+    setTimeout(function() { t.remove(); }, 2500);
+  }
+
+  init();
+})();
