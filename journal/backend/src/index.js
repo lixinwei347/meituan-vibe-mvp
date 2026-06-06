@@ -47,15 +47,14 @@ app.listen(PORT, async () => {
   // 启动后补处理之前没 AI 生成的照片
   if (process.env.ARK_API_KEY) {
     try {
-      const { getTrip, getPhotosNeedingAi, saveAiCard } = require('./db');
+      const { getPhotosNeedingAi, saveAiCard } = require('./db');
       const { generateCardForPhoto } = require('./ai');
       const pending = getPhotosNeedingAi();
       if (pending.length) {
         console.log(`[AI] 发现 ${pending.length} 张照片待补生成，并行处理…`);
         await Promise.all(pending.map(async (p) => {
           try {
-            const trip = getTrip(p.tripId);
-            const card = await generateCardForPhoto(p, trip.stops || []);
+            const card = await generateCardForPhoto(p);
             saveAiCard(p.id, { title: card.cardTitle, narrative: card.narrative, tags: card.tags });
             console.log(`[AI] 照片#${p.id} 补生成完成`);
           } catch (err) {

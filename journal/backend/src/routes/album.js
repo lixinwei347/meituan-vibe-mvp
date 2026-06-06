@@ -69,8 +69,7 @@ router.post('/api/trips/:tripId/photos', handleUpload, async (req, res) => {
   // 后台异步调用 AI 生成卡片
   if (process.env.ARK_API_KEY) {
     try {
-      const trip = getTrip(req.params.tripId);
-      const card = await generateCardForPhoto(photo, trip.stops || []);
+      const card = await generateCardForPhoto(photo);
       saveAiCard(photo.id, {
         title: card.cardTitle,
         narrative: card.narrative,

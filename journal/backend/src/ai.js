@@ -188,30 +188,25 @@ async function generateJournal(tripData, onProgress) {
 /**
  * 为一张照片生成 AI 卡片，结果直接存入 DB
  */
-async function generateCardForPhoto(photo, stops) {
-  const si = Math.min(0, stops.length - 1); // 根据 tripId 找到对应 stop
-  const stop = stops[si] || {};
+async function generateCardForPhoto(photo) {
   const imgUrl = getImageUrl(photo);
 
-  const content = [];
-  if (imgUrl) {
-    content.push({ type: 'image_url', image_url: { url: imgUrl } });
-  }
-  content.push({
-    type: 'text',
-    text: `你是探店手帐写手。${imgUrl ? '看这张探店照片，' : ''}为它写一张手帐卡片。
+  if (!imgUrl) return { cardTitle: photo.title || '探店手记', narrative: '', tags: [] };
 
-店铺：${stop.name || '未知店铺'}
-照片标题：${photo.title || '无标题'}
-拍摄者：${photo.uploaderName || '匿名'}
+  const content = [
+    { type: 'image_url', image_url: { url: imgUrl } },
+    {
+      type: 'text',
+      text: `你是探店手帐写手。看这张探店照片，根据画面内容写一张手帐卡片。
 
 请只返回 JSON：
 {
   "cardTitle": "卡片标题，10字以内",
-  "narrative": "${imgUrl ? '结合画面内容写' : '根据店铺信息写'}，40-60字",
+  "narrative": "根据画面内容描述，40-60字",
   "tags": ["标签1", "标签2", "标签3"]
 }`,
-  });
+    },
+  ];
 
   const raw = await callArk({
     model: MODEL,
@@ -229,7 +224,7 @@ async function generateCardForPhoto(photo, stops) {
 /**
  * 处理所有待生成的 AI 卡片（并行，启动时调用）
  */
-async function processPendingAiCards(stops) {
+async function processPendingAiCards() {
   const { getPhotosNeedingAi, saveAiCard } = require('./db');
   const pending = getPhotosNeedingAi();
 
@@ -240,7 +235,7 @@ async function processPendingAiCards(stops) {
   const results = await Promise.all(
     pending.map(async (photo) => {
       try {
-        const card = await generateCardForPhoto(photo, stops);
+        const card = await generateCardForPhoto(photo);
         saveAiCard(photo.id, {
           title: card.cardTitle,
           narrative: card.narrative,
