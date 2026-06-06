@@ -34,6 +34,7 @@ async function runScenario({ initScript, run }) {
               remove() {},
               add() {},
               setFitView() {},
+              resize() {},
             };
           },
           Marker: function (opts = {}) {
@@ -162,7 +163,8 @@ const mainFlow = await runScenario({
   },
   run: async (page) => {
     await page.evaluate(() => {
-      const listeners = { snapshot: [], memberJoined: [], memberUpdate: [] };
+      const listeners = { snapshot: [], memberJoined: [], memberUpdate: [], draftUpdate: [] };
+      let sharedDraft = null;
       window.RoomApi = {
         memberId: 'member-self',
         async createRoom() {
@@ -181,6 +183,45 @@ const mainFlow = await runScenario({
         async submitPrefs() {
           return { ok: true };
         },
+        async submitSelections(selectedPois) {
+          sharedDraft = {
+            version: 1,
+            items: selectedPois.map((poi, index) => ({
+              poi,
+              selectedByMemberIds: index === 0 ? ['member-self', 'member-friend'] : ['member-self'],
+            })),
+            confirmedMemberIds: [],
+            isFinalized: false,
+            canEdit: true,
+            allConfirmed: false,
+          };
+          return { ok: true, draft: sharedDraft };
+        },
+        async getDraft() {
+          return sharedDraft;
+        },
+        async updateDraft(selectedPois) {
+          sharedDraft = {
+            ...(sharedDraft || {}),
+            version: (sharedDraft?.version || 0) + 1,
+            items: selectedPois.map((poi) => ({ poi, selectedByMemberIds: ['member-self'] })),
+            confirmedMemberIds: [],
+            isFinalized: false,
+            canEdit: true,
+            allConfirmed: false,
+          };
+          return { ok: true, draft: sharedDraft };
+        },
+        async confirmDraft() {
+          sharedDraft = {
+            ...(sharedDraft || {}),
+            confirmedMemberIds: ['member-self', 'member-friend'],
+            isFinalized: true,
+            canEdit: false,
+            allConfirmed: true,
+          };
+          return { ok: true, draft: sharedDraft, allConfirmed: true };
+        },
         onSnapshot(cb) {
           listeners.snapshot.push(cb);
         },
@@ -189,6 +230,9 @@ const mainFlow = await runScenario({
         },
         onMemberUpdate(cb) {
           listeners.memberUpdate.push(cb);
+        },
+        onDraftUpdate(cb) {
+          listeners.draftUpdate.push(cb);
         },
       };
       if (window.MockApi) {
@@ -228,6 +272,15 @@ const mainFlow = await runScenario({
       window.__mtVibeRender();
     });
     await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      window.__mtVibeTestState.screen = '10';
+      window.__mtVibeRender();
+    });
+    const loadingSummary = await page.locator('#loading-member-summary').textContent();
+    await page.evaluate(() => {
+      window.__mtVibeTestState.screen = '11';
+      window.__mtVibeRender();
+    });
     await page.locator('.poi-card').nth(0).click();
     await page.locator('.poi-card').nth(1).click();
     await page.click('#next-step');
@@ -238,6 +291,16 @@ const mainFlow = await runScenario({
     await page.click('#confirm-route');
     await page.waitForTimeout(800);
     const liveScreen = await page.locator('.screen:not(.hidden)').first().getAttribute('data-screen');
+    const startTripCount = await page.locator('#start-live-trip').count();
+    if (startTripCount !== 1) {
+      throw new Error('Live itinerary should expose a start trip action before execution');
+    }
+    await page.click('#start-live-trip');
+    await page.waitForTimeout(300);
+    const activeStopNameBefore = await page.locator('[data-active-stop] h3').textContent();
+    await page.click('[data-complete-stop]');
+    await page.waitForTimeout(300);
+    const activeStopNameAfter = await page.locator('[data-active-stop] h3').textContent();
 
     await page.click('#end-trip');
     await page.waitForTimeout(300);
@@ -248,7 +311,7 @@ const mainFlow = await runScenario({
     const notebookScreen = await page.locator('.screen:not(.hidden)').first().getAttribute('data-screen');
     const notebookSheet = await page.locator('.notebook-card--sheet').count();
 
-    return { summaryScreen, memberCards, routeScreen, routeCards, liveScreen, notebookScreen, notebookSheet };
+    return { summaryScreen, memberCards, loadingSummary, routeScreen, routeCards, liveScreen, notebookScreen, notebookSheet, activeStopNameBefore, activeStopNameAfter };
   },
 });
 
@@ -281,11 +344,17 @@ if (!emptyState.mediaEmpty?.includes('暂无可预览内容')) {
 if (mainFlow.summaryScreen !== '09' || mainFlow.memberCards < 1) {
   throw new Error('Main flow should still render real members after a successful room create/join');
 }
+if (!mainFlow.loadingSummary?.includes('综合 2 位成员位置')) {
+  throw new Error('Loading screen should render the actual member count in its AI route summary');
+}
 if (mainFlow.routeScreen !== '12' || mainFlow.routeCards < 2) {
   throw new Error('Main flow should still produce route cards after selecting recommendations');
 }
 if (mainFlow.liveScreen !== '13') {
   throw new Error('Main flow should still reach the live itinerary screen');
+}
+if (!mainFlow.activeStopNameBefore || !mainFlow.activeStopNameAfter || mainFlow.activeStopNameBefore === mainFlow.activeStopNameAfter) {
+  throw new Error('Live itinerary should advance to the next stop after completing the current stop');
 }
 if (mainFlow.notebookScreen !== '18' || mainFlow.notebookSheet !== 1) {
   throw new Error('Main flow should still render the notebook sheet after ending the trip');

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>美团黑客松路线 MVP</title>
     <link rel="stylesheet" href="./styles.css?v=20260528-2" />
-    <link rel="stylesheet" href="./route-patch.css?v=20260601-1" />
+    <link rel="stylesheet" href="./route-patch.css?v=20260606-6" />
   </head>
   <body>
     <main class="app-shell">
@@ -305,7 +305,7 @@
             <button class="floating-back loading-back" id="back10" aria-label="返回">‹</button>
             <section class="ai-loading-title-card">
               <h1>正在生成 AI 路线</h1>
-              <p>综合 3 位成员位置、预算和口味偏好</p>
+              <p id="loading-member-summary">综合成员位置、预算和口味偏好</p>
             </section>
             <div class="ai-loading-route"></div>
             <section class="ai-loading-card">
@@ -353,6 +353,7 @@
           <!-- 已选悬浮条 -->
           <div class="preview-selected-bar" id="preview-selected-bar">
             <div class="preview-selected-names" id="preview-selected-names"></div>
+            <button class="preview-selected-toggle" id="select-all-recommendations" type="button">一键全选</button>
             <button class="cta preview-selected-cta" id="next-step">下一步 →</button>
           </div>
           <div class="safe-area"></div>
@@ -416,11 +417,14 @@
             </section>
 
             <div class="trip-tip live-trip-tip"><span>⌖</span>4 个点位已串联，右侧导航从当前位置直达该店铺</div>
+            <div class="trip-execution-bar">
+              <button class="primary-btn trip-start-btn" id="start-live-trip" type="button">开始行程</button>
+            </div>
 
             <div class="itinerary-list" id="itinerary-list"></div>
 
             <nav class="trip-tabs">
-              <button class="trip-tab" id="open-comment-panel" type="button"><span>◎</span>评论</button>
+              <button class="trip-tab" id="open-comment-panel" type="button"><span>◎</span>发送弹幕</button>
               <button class="trip-tab" id="open-album" type="button"><span>▧</span>共享相册</button>
               <button class="trip-tab trip-tab--primary" id="end-trip" type="button"><span>⚑</span>结束</button>
             </nav>
@@ -508,19 +512,13 @@
 
           <section class="comment-sheet">
             <div class="sheet-handle"></div>
-            <h2>发表评论</h2>
-            <div class="comment-targets" id="comment-targets">
-              <button class="comment-target is-active" data-comment-target="trip" type="button"><span>◎</span>行程弹幕</button>
-              <button class="comment-target" data-comment-target="hotpot" type="button"><span>⌂</span>火锅店</button>
-              <button class="comment-target" data-comment-target="coffee" type="button"><span>⌂</span>咖啡店</button>
-              <button class="comment-target" data-comment-target="dessert" type="button"><span>⌂</span>甜品店</button>
-            </div>
+            <h2 class="hidden">发送弹幕</h2>
             <label class="comment-input-wrap">
-              <textarea id="comment-input" rows="3" placeholder="写一句评论，选择店铺会进入商户评论；不选店铺则发到行程弹幕">今天这条路线很顺，第二站拍照超出片！</textarea>
-              <span>选择店铺后，评论会进入对应商户评论区</span>
+              <textarea id="comment-input" rows="3" placeholder="写一句实时弹幕，发送后会展示在地图上"></textarea>
+              <span class="hidden">选择店铺后，评论会进入对应商户评论区</span>
             </label>
-            <div class="comment-destination" id="comment-destination"><span>↪</span>当前发布到：行程弹幕，会在地图上滚动展示</div>
-            <button class="comment-submit" id="publish-comment" type="button">➤ 发布评论</button>
+            <div class="comment-destination hidden" id="comment-destination"><span>↪</span>当前发布到：行程弹幕，会在地图上滚动展示</div>
+            <button class="comment-submit" id="publish-comment" type="button">➤ 发送弹幕</button>
           </section>
         </div>
 
@@ -748,6 +746,6 @@
     </script>
     <script src="https://webapi.amap.com/maps?v=2.0&key=3a8163147694ab4137ebf7f14354ce25&plugin=AMap.AutoComplete"></script>
     <script src="./real-api.js?v=20260529-1"></script>
-    <script src="./app.js?v=20260528-2"></script>
+    <script src="./app.js?v=20260606-6"></script>
   </body>
 </html>

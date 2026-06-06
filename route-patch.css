@@ -1,0 +1,386 @@
+/* screen12 route-card aligned with screen11 poi-card */
+.screen-12 .route-list {
+  padding: 10px 18px 12px;
+  margin-top: 8px;
+}
+
+.screen-12 .route-card.route-card--poi {
+  width: 100%;
+  grid-template-columns: 58px minmax(0, 1fr) 60px;
+  border-radius: 18px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  cursor: grab;
+  min-height: 78px;
+}
+
+.screen-12 .route-card[draggable="true"]:active,
+.screen-12 .route-card.is-dragging {
+  opacity: 0.72;
+  cursor: grabbing;
+}
+
+.screen-12 .route-info--poi-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.screen-12 .route-info--poi-card .poi-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.screen-12 .route-order-badge {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--orange);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.screen-12 .route-card .poi-icon {
+  width: 58px;
+  height: 58px;
+}
+
+.screen-12 .route-actions {
+  width: 60px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 6px;
+}
+
+.screen-12 .drag-handle {
+  width: 20px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: #b6b6b6;
+  cursor: grab;
+  letter-spacing: -2px;
+}
+
+.screen-12 .route-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.screen-12 .route-move,
+.screen-12 .route-delete {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #f4f4f4;
+  color: #666;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 0;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.screen-12 .route-move:hover {
+  color: #555;
+}
+
+.screen-12 .route-delete:hover {
+  color: #f00;
+}
+
+/* live trip screens: avoid absolute overlays fighting for height */
+.screen-13 .trip-body,
+.screen-15 .trip-body {
+  position: relative;
+  min-height: 0;
+}
+
+.screen-13 .trip-body {
+  gap: 10px;
+  padding-bottom: 16px;
+}
+
+.screen-13 .live-map,
+.screen-15 .live-map {
+  flex: 0 0 auto;
+  height: 164px;
+}
+
+.screen-13 .trip-execution-bar,
+.screen-13 .trip-tip,
+.screen-13 .trip-tabs,
+.screen-15 .trip-tip {
+  flex: 0 0 auto;
+}
+
+.screen-13 .itinerary-list {
+  padding-bottom: 0;
+}
+
+.screen-13 .trip-tabs {
+  position: static;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.screen-15 .trip-body {
+  padding-bottom: 360px;
+}
+
+.screen-15 .itinerary-list--peek {
+  max-height: none;
+  min-height: 0;
+}
+
+.screen-15 .comment-sheet {
+  top: auto;
+  bottom: 0;
+  height: auto;
+  min-height: 332px;
+  max-height: calc(100% - 292px);
+  overflow: auto;
+}
+
+.screen-15 .comment-targets {
+  height: auto;
+}
+
+/* live current-stop card: keep real photos inside a stable frame */
+.trip-stop--focus {
+  padding: 14px;
+  gap: 14px;
+  align-content: start;
+}
+
+.trip-stop-focus-main {
+  gap: 14px;
+}
+
+.stop-photo--focus {
+  width: 100%;
+  height: auto;
+  min-height: 188px;
+  max-height: 220px;
+  aspect-ratio: 16 / 10;
+  border-radius: 22px;
+  overflow: hidden;
+  background: #f1ede4;
+}
+
+.stop-photo--focus.stop-photo--image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.stop-photo--focus.stop-photo--image span {
+  left: 10px;
+  bottom: 10px;
+  padding: 5px 8px;
+  font-size: 11px;
+  background: rgba(17, 17, 17, 0.58);
+  backdrop-filter: blur(4px);
+}
+
+.stop-info--focus {
+  padding: 0 2px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.stop-info--focus h3 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.stop-info--focus .poi-meta,
+.stop-info--focus .poi-tags,
+.stop-info--focus .stop-feature,
+.stop-info--focus .stop-stats {
+  margin: 0;
+}
+
+.stop-info--focus .poi-meta {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.stop-info--focus .poi-tags {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.focus-stats {
+  gap: 6px 10px;
+  margin-top: 2px;
+}
+
+.focus-stats span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #fff6df;
+  color: #6f5a17;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.focus-comments {
+  margin-top: 2px;
+}
+
+.focus-next-hint {
+  display: block;
+  margin-top: 2px;
+  line-height: 1.45;
+}
+
+.trip-upnext {
+  margin-top: 8px;
+}
+
+.trip-upnext strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.trip-upnext--focus {
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid rgba(255, 209, 0, 0.42);
+  gap: 10px;
+}
+
+.trip-upnext--focus .trip-upnext-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.trip-upnext--focus .trip-upnext-pill {
+  min-width: 0;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.navigation-summary {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: #fff7e4;
+  border: 1px solid rgba(255, 209, 0, 0.38);
+}
+
+.navigation-summary strong {
+  font-size: 13px;
+  font-weight: 950;
+  color: #111;
+}
+
+.navigation-summary-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.navigation-summary-pills span {
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  background: #fff;
+  color: #6f5a17;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.navigation-summary p {
+  margin: 0;
+  color: #666;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.comment-sheet--barrage {
+  gap: 10px;
+  min-height: 0;
+  min-height: 196px;
+  max-height: none;
+  padding-top: 14px;
+}
+
+.comment-sheet--barrage .comment-input-wrap {
+  min-height: 132px;
+  margin-top: 0;
+}
+
+.comment-sheet--barrage .comment-input-wrap textarea {
+  min-height: 92px;
+}
+
+.comment-sheet--barrage .sheet-handle {
+  margin-bottom: 0;
+}
+
+@media (max-width: 430px) {
+  .stop-photo--focus {
+    min-height: 168px;
+    max-height: 196px;
+  }
+
+  .stop-info--focus h3 {
+    font-size: 15px;
+  }
+
+  .trip-upnext--focus .trip-upnext-list {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 430px) {
+  .screen-13 .trip-stop {
+    grid-template-columns: 24px 48px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .screen-13 .live-stop-actions {
+    grid-column: 2 / 4;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .screen-13 .nav-chip {
+    width: 100%;
+    height: 38px;
+  }
+
+  .screen-13 .live-edit-actions {
+    justify-self: end;
+  }
+}

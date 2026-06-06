@@ -180,6 +180,21 @@ function resolveRouteOrigin(origin, pois = []) {
   };
 }
 
+function getMembersCenter(members = []) {
+  const points = members
+    .map((member) => member?.location)
+    .filter(hasCoordinates);
+  if (!points.length) return null;
+  const lat = points.reduce((sum, point) => sum + Number(point.lat), 0) / points.length;
+  const lng = points.reduce((sum, point) => sum + Number(point.lng), 0) / points.length;
+  return {
+    lat: Number(lat.toFixed(6)),
+    lng: Number(lng.toFixed(6)),
+    name: '成员中心',
+    address: '成员聚合位置',
+  };
+}
+
 // ---------- 贪心最短路径（降级用）----------
 
 function greedyOrder(origin, pois) {
@@ -204,7 +219,7 @@ router.post('/plan', async (req, res) => {
   const fallbackOrigin = normalizeOrigin(origin);
 
   // ── 1. 若用户填了位置文字但没有经纬度，先地理编码 ──
-  let searchCenter = hasCoordinates(fallbackOrigin) ? fallbackOrigin : null;
+  let searchCenter = hasCoordinates(fallbackOrigin) ? fallbackOrigin : getMembersCenter(members);
   const locationText = prefs?.locationInput;
   if (locationText && !searchCenter) {
     try {

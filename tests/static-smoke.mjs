@@ -43,6 +43,7 @@ const forbiddenHtmlPatterns = [
   /房间码\s*8273/,
   /https:\/\/meituan\.example\/route-room\/8273/,
   /已生成邀请图片卡片（mock）/,
+  /综合\s*3\s*位成员位置、预算和口味偏好/,
   /<span>林<\/span>/,
   /<span>雯<\/span>/,
   /<span>杰<\/span>/,
@@ -140,4 +141,20 @@ if (!app.includes('function getActiveNotebook') || !app.includes('trip?.notebook
 
 if (!app.includes('formatNotebookDate') || !app.includes('generatedAt')) {
   throw new Error('Notebook timestamp should be generated from trip completion time instead of a seeded literal');
+}
+
+if (!app.includes('function renderLoadingSummary') || !html.includes('id="loading-member-summary"')) {
+  throw new Error('Loading screen member summary should be dynamically rendered from current member count');
+}
+
+if (!app.includes('recommendationLoading') || !app.includes('方案生成中') || !app.includes('getRecommendationLoadingCopy')) {
+  throw new Error('Comprehensive AI recommendation should expose an explicit loading card state while the bundle is being generated');
+}
+
+if (!app.includes('recommendationCache') || !app.includes('getRecommendationCacheSignature')) {
+  throw new Error('Recommendation switching should cache comprehensive results instead of regenerating them on every tab revisit');
+}
+
+if (!html.includes('id="select-all-recommendations"') || !app.includes('toggleSelectAllRecommendations')) {
+  throw new Error('Comprehensive recommendations should provide a one-click select-all action');
 }
