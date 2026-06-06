@@ -133,6 +133,61 @@ button {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ===== 分享卡片 ===== */
+.share-card-wrapper {
+  position: fixed; left: -9999px; top: 0;
+  width: 375px; z-index: -1;
+}
+.share-card {
+  width: 375px; padding: 28px 24px 20px;
+  background:
+    radial-gradient(circle at 80% 16%, rgba(185, 78, 59, 0.08), transparent 26%),
+    linear-gradient(150deg, #faefd9 0%, #efe0c5 56%, #d6e0d9 100%);
+  border-radius: 12px; text-align: center;
+  position: relative; overflow: hidden;
+}
+.share-card-bg {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(172deg, transparent 36%, rgba(123, 96, 58, 0.08) 36.2%, transparent 36.8%),
+    radial-gradient(circle at 12% 18%, rgba(123, 96, 58, 0.12) 0 2px, transparent 3px);
+}
+.share-card-stamp {
+  display: inline-block; padding: 6px 18px; border-radius: 6px;
+  background: var(--stamp); color: #fff;
+  font-size: 15px; font-weight: 950;
+  margin-bottom: 16px; position: relative; z-index: 1;
+}
+.share-card-photo {
+  width: 180px; height: 180px; margin: 0 auto 14px;
+  border: 6px solid #fff; border-radius: 4px;
+  background-size: cover; background-position: center;
+  background-color: #f7eddf;
+  box-shadow: 0 8px 20px rgba(47, 36, 26, 0.15);
+  transform: rotate(-2deg); position: relative; z-index: 1;
+}
+.share-card-title {
+  margin: 0 0 8px; font-size: 20px; font-weight: 950;
+  color: var(--ink); position: relative; z-index: 1;
+}
+.share-card-stats {
+  display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+  margin-bottom: 10px; position: relative; z-index: 1;
+}
+.share-card-stats span {
+  padding: 3px 10px; border-radius: 10px;
+  background: rgba(255,255,255,0.6); font-size: 12px; font-weight: 900;
+  color: var(--muted);
+}
+.share-card-route {
+  font-size: 12px; color: var(--muted); font-weight: 800;
+  margin-bottom: 14px; position: relative; z-index: 1;
+}
+.share-card-footer {
+  font-size: 11px; color: rgba(111, 96, 76, 0.6); font-weight: 800;
+  position: relative; z-index: 1;
+}
+
 /* ===== 画布（可拖拽缩放）===== */
 .journal-canvas {
   flex: 1; overflow: hidden; position: relative;

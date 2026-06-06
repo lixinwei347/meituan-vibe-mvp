@@ -517,8 +517,41 @@
   // ==================== 工具 ====================
 
   async function handleShare() {
-    if (navigator.share) { try { await navigator.share({ title: '我的手帐', text: '看看探店手帐', url: window.location.href }); } catch (e) {} }
-    else { await navigator.clipboard.writeText(window.location.href); toast('链接已复制'); }
+    var wrapper = document.getElementById('share-card-wrapper');
+    var card = document.getElementById('share-card');
+    var photoEl = document.getElementById('share-card-photo');
+    var titleEl = document.getElementById('share-card-title');
+    var statsEl = document.getElementById('share-card-stats');
+    var routeEl = document.getElementById('share-card-route');
+
+    // 填数据
+    var first = cards[0];
+    if (first && first.photoSrc) photoEl.style.backgroundImage = 'url(\'' + first.photoSrc + '\')';
+    titleEl.textContent = el.journalTitle.textContent || '探店手帐';
+    statsEl.innerHTML = '<span>📷 ' + cards.length + '张</span><span>📍 ' + cards.length + '站</span>';
+    routeEl.textContent = cards.map(function(c) { return c.stopName; }).filter(Boolean).slice(0, 4).join(' → ') || '探店路线';
+
+    wrapper.style.left = '0'; wrapper.style.zIndex = '9999';
+    toast('正在生成分享图…');
+
+    try {
+      var h2c = (await import('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.esm.js')).default;
+      var cvs = await h2c(card, { backgroundColor: null, scale: 2 });
+      wrapper.style.left = '-9999px'; wrapper.style.zIndex = '-1';
+
+      var link = document.createElement('a');
+      link.download = '手帐分享-' + TRIP_ID + '.png';
+      link.href = cvs.toDataURL('image/png');
+
+      if (navigator.share && navigator.canShare) {
+        var blob = await (await fetch(link.href)).blob();
+        try { await navigator.share({ files: [new File([blob], '手帐.png', { type: 'image/png' })], title: '我的手帐' }); toast('已分享'); }
+        catch (e) { link.click(); toast('分享图已保存'); }
+      } else { link.click(); toast('分享图已保存'); }
+    } catch (err) {
+      wrapper.style.left = '-9999px'; wrapper.style.zIndex = '-1';
+      await navigator.clipboard.writeText(window.location.href); toast('链接已复制');
+    }
   }
 
   async function handleSave() {
