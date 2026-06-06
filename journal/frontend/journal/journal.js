@@ -62,7 +62,7 @@
       ],
     },
     ins: {
-      name: 'ins风', coverTitle: 'VIBE 探店日记',
+      name: 'ins风', coverTitle: '探店日记',
       stopTemplates: [
         { match: '火锅', title: '🔥 第{num}家 必打卡火锅', text: '{name}直接封神！{feature}，¥{price}吃到撑。随手一拍就是爆款。{comment}' },
         { match: '咖啡', title: '☕️ 第{num}家 超出片咖啡馆', text: '{name}！{feature}！氛围感拉满，朋友圈素材+1。{comment}' },
@@ -402,7 +402,7 @@
         '<div class="canvas-empty-icon">📔</div>' +
         '<h3>空白画布</h3>' +
         '<p>还没有照片，去共享相册拍几张吧</p>' +
-        '<p class="canvas-empty-hint">拍照上传后，AI 会自动为每张照片写手帐卡片</p>' +
+        '<p class="canvas-empty-hint">拍照上传后，会自动为每张照片写手帐卡片</p>' +
       '</div>';
       el.journalSubtitle.textContent = '等待第一张照片';
     } else {
