@@ -100,9 +100,10 @@
     </div>
   </div>
 
-  <!-- 分享卡片（隐藏，生成图片用） -->
-  <div class="share-card-wrapper" id="share-card-wrapper">
-    <div class="share-card" id="share-card">
+  <!-- 分享预览浮层 -->
+  <div class="share-overlay hidden" id="share-overlay">
+    <div class="share-overlay-bg"></div>
+    <div class="share-preview-card" id="share-preview-card">
       <div class="share-card-bg"></div>
       <div class="share-card-stamp">探店手帐</div>
       <div class="share-card-photo" id="share-card-photo"></div>
@@ -110,6 +111,10 @@
       <div class="share-card-stats" id="share-card-stats"></div>
       <div class="share-card-route" id="share-card-route"></div>
       <div class="share-card-footer">美团</div>
+    </div>
+    <div class="share-overlay-actions">
+      <button class="share-btn-close" id="share-btn-close">关闭</button>
+      <button class="share-btn-save" id="share-btn-save">保存图片</button>
     </div>
   </div>
 

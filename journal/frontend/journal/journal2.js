@@ -180,6 +180,16 @@
     el.btnShare.addEventListener('click', handleShare);
     el.btnSave.addEventListener('click', handleSave);
 
+    // 分享预览按钮
+    var btnClose = document.getElementById('share-btn-close');
+    var btnSaveImg = document.getElementById('share-btn-save');
+    if (btnClose) btnClose.addEventListener('click', closeShare);
+    if (btnSaveImg) btnSaveImg.addEventListener('click', saveShareCard);
+
+    // 点击背景关闭
+    var shareBg = document.querySelector('.share-overlay-bg');
+    if (shareBg) shareBg.addEventListener('click', closeShare);
+
     // 刷新手帐按钮
     var btnRefresh = document.getElementById('btn-refresh');
     var loadingOverlay = document.getElementById('loading-overlay');
@@ -517,8 +527,7 @@
   // ==================== 工具 ====================
 
   async function handleShare() {
-    var wrapper = document.getElementById('share-card-wrapper');
-    var card = document.getElementById('share-card');
+    var overlay = document.getElementById('share-overlay');
     var photoEl = document.getElementById('share-card-photo');
     var titleEl = document.getElementById('share-card-title');
     var statsEl = document.getElementById('share-card-stats');
@@ -531,26 +540,25 @@
     statsEl.innerHTML = '<span>📷 ' + cards.length + '张</span><span>📍 ' + cards.length + '站</span>';
     routeEl.textContent = cards.map(function(c) { return c.stopName; }).filter(Boolean).slice(0, 4).join(' → ') || '探店路线';
 
-    wrapper.style.left = '0'; wrapper.style.zIndex = '9999';
-    toast('正在生成分享图…');
+    overlay.classList.remove('hidden');
+  }
 
+  function closeShare() {
+    document.getElementById('share-overlay').classList.add('hidden');
+  }
+
+  async function saveShareCard() {
+    toast('正在生成图片…');
     try {
       var h2c = (await import('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.esm.js')).default;
-      var cvs = await h2c(card, { backgroundColor: null, scale: 2 });
-      wrapper.style.left = '-9999px'; wrapper.style.zIndex = '-1';
-
+      var cvs = await h2c(document.getElementById('share-preview-card'), { backgroundColor: null, scale: 2 });
       var link = document.createElement('a');
       link.download = '手帐分享-' + TRIP_ID + '.png';
       link.href = cvs.toDataURL('image/png');
-
-      if (navigator.share && navigator.canShare) {
-        var blob = await (await fetch(link.href)).blob();
-        try { await navigator.share({ files: [new File([blob], '手帐.png', { type: 'image/png' })], title: '我的手帐' }); toast('已分享'); }
-        catch (e) { link.click(); toast('分享图已保存'); }
-      } else { link.click(); toast('分享图已保存'); }
+      link.click();
+      toast('图片已保存');
     } catch (err) {
-      wrapper.style.left = '-9999px'; wrapper.style.zIndex = '-1';
-      await navigator.clipboard.writeText(window.location.href); toast('链接已复制');
+      toast('保存失败，请重试');
     }
   }
 
