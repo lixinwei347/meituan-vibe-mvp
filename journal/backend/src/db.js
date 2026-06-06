@@ -49,6 +49,42 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_photos_trip ON photos(trip_id);
   CREATE INDEX IF NOT EXISTS idx_reviews_trip ON reviews(trip_id);
+
+  CREATE TABLE IF NOT EXISTS rooms (
+    code TEXT PRIMARY KEY,
+    room_id TEXT NOT NULL,
+    trip_type TEXT DEFAULT '',
+    trip_time TEXT DEFAULT '',
+    route_pref TEXT DEFAULT '',
+    owner_id TEXT DEFAULT '',
+    status TEXT DEFAULT 'waiting',
+    created_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+  );
+
+  CREATE TABLE IF NOT EXISTS room_members (
+    member_id TEXT PRIMARY KEY,
+    code TEXT NOT NULL,
+    nickname TEXT DEFAULT '匿名',
+    avatar TEXT DEFAULT '?',
+    status TEXT DEFAULT 'waiting',
+    prefs_json TEXT DEFAULT NULL,
+    pref_summary TEXT DEFAULT '',
+    location_json TEXT DEFAULT NULL,
+    selected_pois_json TEXT DEFAULT '[]',
+    submitted_at INTEGER DEFAULT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS room_drafts (
+    code TEXT PRIMARY KEY,
+    version INTEGER NOT NULL DEFAULT 1,
+    items_json TEXT DEFAULT '[]',
+    confirmed_member_ids_json TEXT DEFAULT '[]',
+    is_finalized INTEGER NOT NULL DEFAULT 0,
+    origin TEXT DEFAULT 'memberSelections',
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_room_members_code ON room_members(code);
 `);
 
 // 迁移：给旧表添加 AI 字段

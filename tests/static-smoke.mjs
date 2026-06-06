@@ -15,18 +15,60 @@ const requiredHtml = [
   'id="confirm-end-trip"',
   'id="notebook-card"',
   'id="media-viewer-content"',
+  'id="summary-progress-text"',
+  'id="summary-progress-avatars"',
+  'route-patch.css',
+  'id="live-map13"',
+  'id="live-map15"',
 ];
 
 const requiredFunctions = [
   'function renderEndTripDialog',
   'function renderNotebook',
   'function renderHistory',
+  'function renderSummaryProgress',
+  'function shouldHydrateInitialRoutePlan',
+  'async function requestRecommendationsForMode',
+  'function renderLiveMapFallback',
+  'function renderPoiVisual',
   'function finishTrip',
   'function generateNotebookFromTrip',
   'function saveNotebookImage',
   'function shareNotebook',
   'function createNotebookShareImage',
   'function stepMedia',
+];
+
+const forbiddenHtmlPatterns = [
+  /房间码\s*8273/,
+  /https:\/\/meituan\.example\/route-room\/8273/,
+  /已生成邀请图片卡片（mock）/,
+  /综合\s*3\s*位成员位置、预算和口味偏好/,
+  /<span>林<\/span>/,
+  /<span>雯<\/span>/,
+  /<span>杰<\/span>/,
+  /\bXinwei\b/,
+  /\bYuki\b/,
+  /\bLeo\b/,
+  /3\/5\s*人已提交偏好/,
+  /北京市西单大悦城/,
+  /今天\s*20:48/,
+];
+
+const forbiddenAppPatterns = [
+  /const\s+members\s*=\s*\[/,
+  /const\s+initialAlbumPhotos\s*=\s*\[/,
+  /locationInput:\s*['"]北京市西单大悦城['"]/,
+  /\bXinwei\b/,
+  /\bYuki\b/,
+  /\bLeo\b/,
+  /\bMia\b/,
+  /火锅店第一张合照/,
+  /城市露台咖啡拉花/,
+  /甜品拼盘九宫格/,
+  /成员路上随手拍/,
+  /https:\/\/meituan\.example\/route-room\/\$\{code\}/,
+  /今天\s*20:48/,
 ];
 
 for (const needle of requiredHtml) {
@@ -41,8 +83,36 @@ for (const needle of requiredFunctions) {
   }
 }
 
+for (const pattern of forbiddenHtmlPatterns) {
+  if (pattern.test(html)) {
+    throw new Error(`Seeded HTML marker should be removed: ${pattern}`);
+  }
+}
+
+for (const pattern of forbiddenAppPatterns) {
+  if (pattern.test(app)) {
+    throw new Error(`Seeded app marker should be removed: ${pattern}`);
+  }
+}
+
 if (!app.includes('manualRouteOrder')) {
   throw new Error('Route ordering should distinguish AI optimized order from manual edits');
+}
+
+if (!app.includes('state.routePlan = nextRoutePlan') || !app.includes('shouldHydrateInitialRoutePlan')) {
+  throw new Error('Bootstrap route hydration should be guarded to avoid overwriting in-progress route editing');
+}
+
+if (!app.includes('photoUrl') || !app.includes('renderPoiVisual')) {
+  throw new Error('POI cards should support real photo rendering when the backend provides photoUrl');
+}
+
+if (!app.includes('const fun = [...new Set([...state.selectedPrefs.fun')) {
+  throw new Error('Fun preference sync should use selected fun tags instead of the full default catalog');
+}
+
+if (!app.includes('state.recommendationRequestId += 1') || !app.includes('const requestId = state.recommendationRequestId')) {
+  throw new Error('Recommendation refresh should guard against stale async filter responses');
 }
 
 if (html.includes('history-panel--notebook') || html.includes('id="notebook-history-list"')) {
@@ -63,4 +133,28 @@ if (!app.includes('endTripChoice') || !app.includes('function confirmEndTrip')) 
 
 if (!app.includes('notebook-card--sheet') || !app.includes('notebook-layout')) {
   throw new Error('Notebook should use the compact image-like scrapbook layout');
+}
+
+if (!app.includes('function getActiveNotebook') || !app.includes('trip?.notebook')) {
+  throw new Error('History notebook reopen should resolve the notebook from the selected trip entry');
+}
+
+if (!app.includes('formatNotebookDate') || !app.includes('generatedAt')) {
+  throw new Error('Notebook timestamp should be generated from trip completion time instead of a seeded literal');
+}
+
+if (!app.includes('function renderLoadingSummary') || !html.includes('id="loading-member-summary"')) {
+  throw new Error('Loading screen member summary should be dynamically rendered from current member count');
+}
+
+if (!app.includes('recommendationLoading') || !app.includes('方案生成中') || !app.includes('getRecommendationLoadingCopy')) {
+  throw new Error('Comprehensive AI recommendation should expose an explicit loading card state while the bundle is being generated');
+}
+
+if (!app.includes('recommendationCache') || !app.includes('getRecommendationCacheSignature')) {
+  throw new Error('Recommendation switching should cache comprehensive results instead of regenerating them on every tab revisit');
+}
+
+if (!html.includes('id="select-all-recommendations"') || !app.includes('toggleSelectAllRecommendations')) {
+  throw new Error('Comprehensive recommendations should provide a one-click select-all action');
 }

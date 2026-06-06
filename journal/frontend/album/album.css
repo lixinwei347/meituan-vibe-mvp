@@ -61,6 +61,7 @@ button {
 
 .safe-area {
   height: 34px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .visually-hidden {
   position: absolute;

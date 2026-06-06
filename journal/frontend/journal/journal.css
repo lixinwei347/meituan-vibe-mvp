@@ -56,7 +56,7 @@ button {
   opacity: 0.9;
 }
 
-.safe-area { height: 34px; }
+.safe-area { height: 34px; padding-bottom: env(safe-area-inset-bottom, 0px); }
 .status-bar { height: 12px; }
 .screen {
   position: absolute; inset: 0; display: flex; flex-direction: column;
@@ -435,9 +435,9 @@ button {
 
 /* 移动端全屏 */
 @media (max-width: 460px) {
-  .app-shell { display: block; min-height: 100svh; padding: 0; background: var(--paper); }
+  .app-shell { display: block; min-height: 100dvh; padding: 0; background: var(--paper); }
   .phone {
-    width: 100vw; height: 100svh; min-height: 740px;
+    width: 100vw; height: 100dvh; min-height: 740px;
     border: 0; border-radius: 0; box-shadow: none;
     transform: none;
   }
