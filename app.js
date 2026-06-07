@@ -89,6 +89,7 @@ const state = {
   currentMembers: [],   // 房间成员列表（WS 实时更新）
   sharedDraft: null,    // screen12 共享行程草稿
   roomMode: 'create',   // screen05 模式：'create' | 'join'
+  syncedJournalCommentsForTripId: null,
   recommendationRequestId: 0,
   recommendationLoading: false,
   recommendationCache: {},
@@ -2122,10 +2123,11 @@ function closeEndTripDialog() {
   render();
 }
 
-function confirmEndTrip() {
+async function confirmEndTrip() {
   if (state.endTripChoice === 'notebook') {
     state.showEndDialog = false;
     const tripId = state.roomCode || state.currentTripId || 'trip001';
+    await syncTripCommentsToJournal(tripId);
     window.location.href = `journal/frontend/journal/journal.html?tripId=${tripId}&returnTo=13`;
     return;
   }
@@ -2155,6 +2157,34 @@ function renderEndTripDialog() {
   el.skipNotebook.classList.toggle('is-selected', state.endTripChoice === 'finish');
   if (el.confirmEndTrip) {
     el.confirmEndTrip.textContent = state.endTripChoice === 'notebook' ? '确认生成电子手帐' : '确认直接结束';
+  }
+}
+
+async function syncTripCommentsToJournal(tripId) {
+  if (!tripId || state.syncedJournalCommentsForTripId === tripId) return;
+  const comments = [
+    ...state.tripBarrage.map((text) => ({ text, targetStopId: null })),
+    ...Object.entries(state.storeComments).flatMap(([targetStopId, list]) => (
+      list.map((text) => ({ text, targetStopId }))
+    )),
+  ].filter((item) => item.text && item.text.trim());
+  if (!comments.length) return;
+
+  const apiBase = window.location.hostname === 'localhost' ? 'http://localhost:4181' : '/meituan-api';
+  try {
+    await Promise.all(comments.map((comment) => fetch(`${apiBase}/api/trips/${encodeURIComponent(tripId)}/reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userName: state.myName || '我',
+        text: comment.text.replace(/^我：/, ''),
+        mood: '开心',
+        targetStopId: comment.targetStopId,
+      }),
+    })));
+    state.syncedJournalCommentsForTripId = tripId;
+  } catch (error) {
+    console.warn('[journal] 同步行程弹幕失败:', error);
   }
 }
 

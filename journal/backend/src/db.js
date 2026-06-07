@@ -115,26 +115,6 @@ if (photoCount.count === 0) {
   });
   insertMany();
 
-  // 种子评论
-  const insertReview = db.prepare(`
-    INSERT INTO reviews (trip_id, user_name, text, mood, target_stop_id, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  const seedReviews = [
-    ['trip001', 'Xinwei', '牛肉真的嫩，不蘸料都好吃！',     '推荐', 'hotpot',  '2026-06-02T15:00:00'],
-    ['trip001', 'Leo',    '锅底不辣但很香，广东人友好',     '开心', 'hotpot',  '2026-06-02T15:10:00'],
-    ['trip001', 'Yuki',   '露台拍照超出片，咖啡也不错',     '推荐', 'coffee',  '2026-06-02T16:50:00'],
-    ['trip001', 'Mia',    '招牌布丁已收藏，下次还来',       '开心', 'dessert', '2026-06-02T18:20:00'],
-    ['trip001', 'Leo',    '甜品拼盘量好大，四个人刚好',     '推荐', 'dessert', '2026-06-02T18:25:00'],
-    ['trip001', 'Yuki',   '夜景很美，完美收尾',             '开心', 'bar',     '2026-06-02T19:45:00'],
-  ];
-  const insertReviews = db.transaction(() => {
-    for (const r of seedReviews) {
-      insertReview.run(...r);
-    }
-  });
-  insertReviews();
-
   console.log('📦 已写入种子数据');
 }
 

@@ -342,10 +342,10 @@
         if (albumRes.ok) { var ad = await albumRes.json(); photos = ad.photos || []; apiOk = true; }
       } catch (e2) {}
     }
-    // 如果还没照片，用 mock 兜底
+    // 如果还没照片，用 mock 照片兜底；弹幕/评论必须只来自真实用户数据
     if (!apiOk || !photos.length) {
       photos = getMockPhotos();
-      reviews = getMockReviews();
+      reviews = [];
     }
 
     // 从真实照片生成路线站（不用 mock 站点数据）
@@ -393,6 +393,8 @@
       var feature = stop.feature || (stop.tags || []).slice(0, 3).join(' / ') || '值得一去';
       var comment = '';
       if (reviews.length > i) comment = '「' + reviews[i].text + '」';
+      var directReviews = reviews.filter(function(r) { return r.targetStopId && stop.id && r.targetStopId === stop.id; });
+      var tripReviews = reviews.filter(function(r) { return !r.targetStopId; });
       // 优先用已缓存的 AI 数据（上传照片时后台生成的）
       var aiTitle = p.aiTitle || p.ai_title || '';
       var aiNarrative = p.aiNarrative || p.ai_narrative || '';
@@ -410,7 +412,7 @@
         likes: p.likes || 0,
         tags: useAi ? aiTags : (stop.tags || ['探店','美食','旅行']).slice(0, 3),
         stopName: stop.name || '',
-        relatedReviews: reviews.filter(function(r) { return r.targetStopId && stop.id && r.targetStopId === stop.id; }),
+        relatedReviews: directReviews.concat(tripReviews),
         stopNum: si + 1,
         aiGenerated: useAi,
       });
@@ -521,12 +523,6 @@
       { id: 2, title: '露台咖啡拉花', uploaderName: 'Yuki', likes: 3, tone: 'mint', dataUrl: '' },
       { id: 3, title: '甜品拼盘九宫格', uploaderName: 'Leo', likes: 8, tone: 'pink', dataUrl: '' },
       { id: 4, title: '湖畔夜景', uploaderName: 'Mia', likes: 5, tone: 'blue', dataUrl: '' },
-    ];
-  }
-  function getMockReviews() {
-    return [
-      { userName: 'Xinwei', text: '牛肉真的嫩！' }, { userName: 'Yuki', text: '拍照超出片' },
-      { userName: 'Leo', text: '四个人刚好' }, { userName: 'Mia', text: '完美收尾' },
     ];
   }
   function getMockMembers() {

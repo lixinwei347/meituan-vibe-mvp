@@ -27,6 +27,8 @@ function normalizeStop(item = {}, index) {
     price: poi.price || '--',
     feature: poi.subCategory || poi.category || poi.address || '值得一去',
     tags: Array.isArray(poi.tags) ? poi.tags.slice(0, 6) : [],
+    photoUrl: poi.photoUrl || '',
+    photoTitle: poi.photoTitle || '',
     lat,
     lng,
     address: poi.address || '',

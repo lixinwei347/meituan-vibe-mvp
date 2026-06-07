@@ -236,6 +236,7 @@
       if (p.url.indexOf('http') === 0) return p.url;
       return API + p.url;
     }
+    if (p.photoUrl) return p.photoUrl;
     return '';
   }
 
@@ -342,10 +343,10 @@
         if (albumRes.ok) { var ad = await albumRes.json(); photos = ad.photos || []; apiOk = true; }
       } catch (e2) {}
     }
-    // 只有演示 trip001 才使用 mock，真实房间不能混入演示数据
+    // 只有演示 trip001 才使用 mock 照片；弹幕/评论必须只来自真实用户数据
     if ((!apiOk || !photos.length) && TRIP_ID === 'trip001') {
       photos = getMockPhotos();
-      reviews = getMockReviews();
+      reviews = [];
     }
 
     // 优先使用当前房间最终路线；没有路线时才从真实照片生成临时站点
@@ -447,22 +448,24 @@
   function applyGeneratedJournal(journal) {
     cards = [];
     var generatedCards = journal.cards || [];
-    for (var i = 0; i < generatedCards.length; i++) {
-      var ac = generatedCards[i];
+    var sourceCount = _rawStops.length || _rawPhotos.length || generatedCards.length;
+    for (var i = 0; i < sourceCount; i++) {
+      var ac = generatedCards[i] || {};
       var p = _rawPhotos[i] || {};
       var si = _rawStops.length ? Math.min(i, _rawStops.length - 1) : i;
       var stop = _rawStops[si] || {};
+      var visualSource = Object.assign({}, stop, p);
       cards.push({
-        id: p.id,
-        title: ac.title || p.aiTitle || p.ai_title || p.title || '探店记录',
+        id: stop.id || p.id || ('stop-' + (si + 1)),
+        title: ac.title || p.aiTitle || p.ai_title || stop.name || p.title || '探店记录',
         text: ac.narrative || p.aiNarrative || p.ai_narrative || '这一刻值得收进手帐',
-        photoSrc: photoSrc(p),
+        photoSrc: photoSrc(visualSource),
         tone: p.tone || 'peach',
         uploaderName: p.uploaderName || p.uploader_name || '',
         likes: p.likes || 0,
         tags: ac.tags || [],
         stopName: stop.name || p.title || '',
-        relatedReviews: _rawReviews.filter(function(r) { return r.targetStopId && stop.id && r.targetStopId === stop.id; }),
+        relatedReviews: getReviewsForStop(stop),
         stopNum: si + 1,
         aiGenerated: true,
       });
@@ -485,16 +488,18 @@
 
   function buildCardsFromData() {
     var photos = _rawPhotos, stops = _rawStops, reviews = _rawReviews;
-    var sourceCount = photos.length || stops.length;
+    var sourceCount = stops.length || photos.length;
     cards = [];
     for (var i = 0; i < sourceCount; i++) {
       var p = photos[i] || {};
       var si = stops.length ? Math.min(i, stops.length - 1) : i;
       var stop = stops[si] || {};
+      var visualSource = Object.assign({}, stop, p);
       var tmpl = getStopTemplate(stop.name || '');
       var feature = stop.feature || (stop.tags || []).slice(0, 3).join(' / ') || '值得一去';
       var comment = '';
-      if (reviews.length > i) comment = '「' + reviews[i].text + '」';
+      var relatedReviews = getReviewsForStop(stop);
+      if (relatedReviews.length) comment = '「' + relatedReviews[0].text + '」';
       // 优先用已缓存的 AI 数据（上传照片时后台生成的）
       var aiTitle = p.aiTitle || p.ai_title || '';
       var aiNarrative = p.aiNarrative || p.ai_narrative || '';
@@ -503,16 +508,16 @@
       var useAi = !!(aiTitle && aiNarrative);
 
       cards.push({
-        id: p.id || ('stop-' + (si + 1)),
+        id: stop.id || p.id || ('stop-' + (si + 1)),
         title: useAi ? aiTitle : fill(tmpl.title, { num: String(si + 1), name: stop.name || p.title || '', feature: feature, price: stop.price || '??', comment: comment }),
         text: useAi ? aiNarrative : fill(tmpl.text, { num: String(si + 1), name: stop.name || p.title || '', feature: feature, price: stop.price || '??', comment: comment }),
-        photoSrc: photoSrc(p),
+        photoSrc: photoSrc(visualSource),
         tone: p.tone || ['peach','mint','pink','blue'][i % 4],
         uploaderName: p.uploaderName || p.uploader_name || p.uploader || '',
         likes: p.likes || 0,
         tags: useAi ? aiTags : (stop.tags || ['探店','美食','旅行']).slice(0, 3),
         stopName: stop.name || '',
-        relatedReviews: reviews.filter(function(r) { return r.targetStopId && stop.id && r.targetStopId === stop.id; }),
+        relatedReviews: relatedReviews,
         stopNum: si + 1,
         aiGenerated: useAi,
       });
@@ -533,41 +538,39 @@
 
   function getMemoLines() {
     var lines = [];
-    if (journalCover && journalCover.summary) {
-      lines.push({
-        label: journalCover.subtitle || '手帐综述',
-        text: journalCover.summary,
-      });
-    }
     if (_rawReviews.length) {
       for (var i = 0; i < _rawReviews.length && lines.length < 5; i++) {
         var r = _rawReviews[i];
+        if (!r.text) continue;
         lines.push({
-          label: r.targetStopId || r.mood || '行程弹幕',
-          text: r.text || '',
+          label: r.mood || r.userName || '行程弹幕',
+          text: r.text,
         });
       }
     }
-    for (var j = 0; j < cards.length && lines.length < 5; j++) {
-      lines.push({
-        label: cards[j].title,
-        text: cards[j].text,
-      });
-    }
-    if (!lines.length) {
-      lines.push({ label: '行程弹幕', text: '成员路上的随手拍都收进来了' });
-      lines.push({ label: '商户', text: '适合收尾聊天' });
-    }
     return lines;
+  }
+
+  function getReviewsForStop(stop) {
+    return _rawReviews.filter(function(r) {
+      if (!r.text) return false;
+      if (!r.targetStopId) return true;
+      return stop && stop.id && r.targetStopId === stop.id;
+    });
   }
 
   function renderPhotoButton(card, index, className) {
     if (!card) return '';
     var imageStyle = card.photoSrc ? 'style="background-image:url(\'' + card.photoSrc + '\')"' : '';
     return '<button class="' + className + '" data-index="' + index + '" type="button">' +
+      '<span class="sheet-photo-step">第' + esc(card.stopNum || index + 1) + '站</span>' +
       '<span class="sheet-photo-image" ' + imageStyle + '></span>' +
       '<strong>' + esc(card.title || card.stopName || '共享相册') + '</strong>' +
     '</button>';
+  }
+
+  function getDecorPhotoCards() {
+    return cards.filter(function(card) { return !!card.photoSrc; }).slice(0, 2);
   }
 
   function renderCanvas() {
@@ -594,20 +597,22 @@
     var memoLines = getMemoLines();
     var stampChars = ['美', '团', '记'];
     var sheetTitle = (journalCover && journalCover.title) || '多人探店手帐';
-    var routeList = cards.slice(0, 3).map(function(c, i) {
+    var routeList = cards.map(function(c, i) {
       return '<div class="sheet-stop">' +
         '<span>' + (i + 1) + '</span>' +
         '<div><strong>' + esc(c.stopName || c.title || ('第' + (i + 1) + '站')) + '</strong>' +
         '<p>' + esc(c.text || '这一刻值得收进手帐') + '</p></div>' +
       '</div>';
     }).join('');
-    var memoHtml = memoLines.map(function(item) {
+    var memoHtml = memoLines.length ? memoLines.map(function(item) {
       return '<div class="sheet-memo-line">' +
         '<strong>' + esc(item.label) + '</strong>' +
         '<p>' + esc(item.text) + '</p>' +
       '</div>';
-    }).join('');
-    var miniPhotos = cards.slice(1, 4).map(function(c, i) {
+    }).join('') : '<div class="sheet-memo-empty">暂无成员弹幕</div>';
+    var photoCards = getDecorPhotoCards();
+    var mainPhoto = photoCards[0] || cards[0];
+    var miniPhotos = photoCards.slice(1, 2).map(function(c, i) {
       return renderPhotoButton(c, i + 1, 'sheet-mini-photo sheet-mini-photo--' + (c.tone || 'peach'));
     }).join('');
 
@@ -618,7 +623,7 @@
           '<div class="sheet-title-block"><h1>' + esc(sheetTitle) + '</h1><em>' + getJournalTime() + '</em></div>' +
         '</header>' +
         '<section class="sheet-hero">' +
-          '<div class="sheet-main-photo-wrap">' + renderPhotoButton(cards[0], 0, 'sheet-main-photo') + '</div>' +
+          '<div class="sheet-main-photo-wrap">' + renderPhotoButton(mainPhoto, 0, 'sheet-main-photo') + '</div>' +
           '<div class="sheet-route-wrap">' +
             '<div class="sheet-route-bubble">' + routeNames.map(function(name) { return '<strong>' + esc(name) + ' →</strong>'; }).join('') + '</div>' +
             '<div class="sheet-stop-list">' + routeList + '</div>' +
