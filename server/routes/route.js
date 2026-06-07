@@ -181,6 +181,7 @@ function resolveRouteOrigin(origin, pois = []) {
 }
 
 function getMembersCenter(members = []) {
+  if (!members) members = [];
   const points = members
     .map((member) => member?.location)
     .filter(hasCoordinates);

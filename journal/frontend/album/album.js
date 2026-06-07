@@ -47,6 +47,20 @@
     return params.get('userName') || '我';
   }
 
+  function getReturnTo() {
+    var params = new URLSearchParams(window.location.search);
+    return params.get('returnTo') || '13';
+  }
+
+  function goBackToMain() {
+    var base = window.location.hostname === 'localhost' ? '../../index.html' : '/meituan/index.html';
+    var returnTo = getReturnTo();
+    sessionStorage.setItem('meituan_room', TRIP_ID);
+    sessionStorage.setItem('vibe_roomCode', TRIP_ID);
+    sessionStorage.setItem('meituan_return_screen', returnTo);
+    window.location.href = base + '#' + encodeURIComponent(returnTo);
+  }
+
   // ===== API 调用 =====
   async function fetchPhotos() {
     try {
@@ -157,10 +171,7 @@
 
     // 返回按钮 → 回到主应用，带上当前房间信息
     if (el.backBtn) {
-      el.backBtn.addEventListener('click', function() {
-        var base = window.location.hostname === 'localhost' ? '../../index.html' : '/meituan/index.html';
-        window.location.href = base + '?room=' + encodeURIComponent(TRIP_ID) + '#13';
-      });
+      el.backBtn.addEventListener('click', goBackToMain);
     }
 
     // 预览浮层事件

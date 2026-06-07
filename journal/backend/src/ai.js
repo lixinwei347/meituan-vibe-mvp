@@ -71,7 +71,18 @@ async function generateJournal(tripData, onProgress) {
 
   if (!API_KEY) throw new Error('未配置 ARK_API_KEY');
 
-  const total = photos.length + 1; // 每个照片一张卡 + 封面
+  const cardSources = photos.length
+    ? photos.map((photo, index) => ({ photo, stop: stops[Math.min(index, Math.max(stops.length - 1, 0))] || {}, index }))
+    : stops.map((stop, index) => ({
+        photo: {
+          id: null,
+          title: stop.name || `第${index + 1}站`,
+          uploaderName: members[index % Math.max(members.length, 1)]?.name || '同行成员',
+        },
+        stop,
+        index,
+      }));
+  const total = cardSources.length + 1; // 每个照片/站点一张卡 + 封面
   let current = 0;
 
   // ===== 1. 生成封面 =====
@@ -82,6 +93,7 @@ async function generateJournal(tripData, onProgress) {
 探店路线：${stops.map(s => s.name).join(' → ')}
 同行人数：${members.length}人
 照片数量：${photos.length}张
+路线站点：${stops.map(s => s.name).join('、') || '暂无'}
 手帐风格：${template}
 
 请只返回 JSON（不要 markdown）：
@@ -107,15 +119,13 @@ async function generateJournal(tripData, onProgress) {
     summary: coverJson.coverSummary || '',
   };
 
-  // ===== 2. 为每张照片生成卡片（带视觉识别）=====
+  // ===== 2. 为每张照片/路线站点生成卡片 =====
   const cards = [];
-  for (let i = 0; i < photos.length; i++) {
-    const p = photos[i];
-    const si = Math.min(i, stops.length - 1);
-    const stop = stops[si] || {};
+  for (let i = 0; i < cardSources.length; i++) {
+    const { photo: p, stop } = cardSources[i];
     const imgUrl = getImageUrl(p);
 
-    onProgress && onProgress(current + 1, total, `正在识别第${i + 1}张照片…`);
+    onProgress && onProgress(current + 1, total, imgUrl ? `正在识别第${i + 1}张照片…` : `正在写第${i + 1}站…`);
     current++;
 
     const content = [];
@@ -127,7 +137,7 @@ async function generateJournal(tripData, onProgress) {
 
     content.push({
       type: 'text',
-      text: `你是一个探店手帐写手。${imgUrl ? '看这张探店照片，' : ''}为它写一张手帐卡片。注意：字数不能超过限制。
+      text: `你是一个探店手帐写手。${imgUrl ? '看这张探店照片，' : '根据这次房间路线，'}为它写一张手帐卡片。注意：字数不能超过限制。
 
 店铺：${stop.name || '未知店铺'}
 照片标题：${p.title || '无标题'}
@@ -138,7 +148,7 @@ async function generateJournal(tripData, onProgress) {
 请只返回 JSON：
 {
   "cardTitle": "卡片标题，10字以内",
-  "narrative": "照片叙事文案，${imgUrl ? '结合画面内容写' : '根据店铺信息写'}，40-60字",
+  "narrative": "${imgUrl ? '照片叙事文案，结合画面内容写' : '路线站点文案，根据店铺信息和多人探店语气写'}，40-60字",
   "tags": ["标签1", "标签2", "标签3"]
 }`,
     });

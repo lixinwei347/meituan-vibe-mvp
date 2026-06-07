@@ -437,29 +437,80 @@ function syncLiveMapViewport() {
   });
 }
 
+function parseStartupRoute() {
+  if (typeof window === 'undefined') return {};
+  const params = new URLSearchParams(window.location.search || '');
+  const hash = (window.location.hash || '').replace(/^#/, '');
+  const route = {};
+  const storedRoom = sessionStorage.getItem('meituan_room') || sessionStorage.getItem('vibe_roomCode');
+  const storedScreen = sessionStorage.getItem('meituan_return_screen');
+
+  if (params.get('room')) route.roomCode = params.get('room');
+  if (/^\d{4}$/.test(hash)) route.screen = hash;
+  if (storedRoom && !route.roomCode) route.roomCode = storedRoom;
+  if (storedScreen && !route.screen) route.screen = storedScreen;
+
+  if (hash.startsWith('room=')) {
+    const code = hash.slice('room='.length).trim();
+    if (/^\d{4}$/.test(code)) {
+      route.roomCode = code;
+      route.screen = '05';
+      route.roomMode = 'join';
+    }
+  }
+
+  if (storedScreen) sessionStorage.removeItem('meituan_return_screen');
+  return route;
+}
+
+function applyStartupRoute() {
+  const route = parseStartupRoute();
+  if (!route.roomCode && !route.screen) return {};
+
+  const allowedScreens = new Set(['04','05','06','07','08','09','10','11','12','13','14','15','18','19']);
+  if (route.roomCode) {
+    state.roomCode = route.roomCode;
+    state.currentTripId = route.roomCode;
+    sessionStorage.setItem('meituan_room', route.roomCode);
+    sessionStorage.setItem('vibe_roomCode', route.roomCode);
+  }
+  if (route.roomMode) state.roomMode = route.roomMode;
+  if (route.screen && allowedScreens.has(route.screen)) state.screen = route.screen;
+  if (state.screen === '13' || state.screen === '15') {
+    state.tripStarted = true;
+    state.tripExecutionStarted = true;
+  }
+
+  return route;
+}
+
+async function hydrateStartupRoomData(route) {
+  if (!route.roomCode || !window.RoomApi) return;
+  try {
+    const room = await window.RoomApi.getRoom(route.roomCode);
+    if (!room) return;
+    state.currentMembers = room.members || [];
+    if (room.draft) {
+      applySharedDraftState(room.draft);
+      const pois = getSharedDraftPois();
+      if (pois.length) {
+        state.routePlan = { ...(state.routePlan || {}), selected: pois, totalDistanceLabel: `共享行程 · 第 ${room.draft.version || 1} 版` };
+        state.selectedIds = pois.map((poi) => poi.id);
+      }
+    }
+  } catch (error) {
+    console.warn('恢复房间状态失败', error);
+  }
+}
+
 async function bootstrap() {
   updateViewportScale();
   if (typeof window !== 'undefined') window.addEventListener('resize', updateViewportScale);
-
-  // 从独立页面跳回时恢复房间和页面状态
-  var params = new URLSearchParams(window.location.search);
-  var roomFromUrl = params.get('room');
-  if (roomFromUrl) {
-    state.roomCode = roomFromUrl;
-    state.currentTripId = roomFromUrl;
-    sessionStorage.setItem('meituan_room', roomFromUrl);
-  }
-  var hash = window.location.hash;
-  if (hash && /^#\d{2}$/.test(hash)) {
-    state.screen = hash.slice(1);
-  }
-  if (roomFromUrl || hash) {
-    window.history.replaceState(null, '', window.location.pathname);
-  }
-
+  const startupRoute = applyStartupRoute();
   bindEvents();
   syncPreferenceModel();
   render();
+  hydrateStartupRoomData(startupRoute).then(() => render());
 
   const bootstrapSnapshot = {
     screen: state.screen,
@@ -989,7 +1040,7 @@ function bindEvents() {
 
   el.openAlbum.addEventListener('click', () => {
     const tripId = state.roomCode || state.currentTripId || 'trip001';
-    window.location.href = `journal/frontend/album/album.html?tripId=${tripId}&userName=${encodeURIComponent(state.myName || '我')}`;
+    window.location.href = `journal/frontend/album/album.html?tripId=${tripId}&userName=${encodeURIComponent(state.myName || '我')}&returnTo=13`;
   });
 
   el.openCommentPanel.addEventListener('click', () => {
@@ -1296,6 +1347,7 @@ function render() {
     syncLiveMapViewport();
   }
   if (typeof window !== 'undefined') {
+    document.documentElement.classList.remove('booting');
     window.__mtVibeTestState = state;
     window.__mtVibeRender = render;
   }
@@ -1957,7 +2009,7 @@ function confirmEndTrip() {
   if (state.endTripChoice === 'notebook') {
     state.showEndDialog = false;
     const tripId = state.roomCode || state.currentTripId || 'trip001';
-    window.location.href = `journal/frontend/journal/journal.html?tripId=${tripId}`;
+    window.location.href = `journal/frontend/journal/journal.html?tripId=${tripId}&returnTo=13`;
     return;
   }
   finishTrip({ notebookGenerated: false });

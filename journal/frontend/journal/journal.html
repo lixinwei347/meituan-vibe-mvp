@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>探店手帐</title>
-  <link rel="stylesheet" href="journal.css?v=6" />
+  <title>AI 手帐笔记</title>
+  <link rel="stylesheet" href="journal.css?v=19" />
 </head>
 <body>
   <div class="app-shell">
@@ -16,8 +16,8 @@
         <header class="page-head">
           <button class="round-button" id="btn-back" aria-label="返回">‹</button>
           <div>
-            <h2 id="journal-title">探店手帐</h2>
-            <p id="journal-subtitle">点击卡片查看故事</p>
+            <h2 id="journal-title">AI 手帐笔记</h2>
+            <p id="journal-subtitle">卡片可点击查看详情</p>
           </div>
         </header>
 
@@ -29,19 +29,12 @@
         </div>
 
         <button class="refresh-btn" id="btn-refresh">
-          <span>✨ 刷新手帐</span>
+          <span>重新生成</span>
         </button>
 
-        <!-- 画布（可拖拽缩放） -->
-        <div class="journal-canvas" id="journal-canvas">
-          <div class="canvas-transform" id="canvas-transform">
-            <div class="canvas-cards" id="canvas-cards"></div>
-          </div>
-          <div class="canvas-controls">
-            <button id="canvas-zoom-in" type="button" aria-label="放大">+</button>
-            <button id="canvas-zoom-out" type="button" aria-label="缩小">−</button>
-            <button id="canvas-zoom-reset" type="button" aria-label="重置">↺</button>
-          </div>
+        <!-- 手帐纸张 -->
+        <div class="journal-canvas journal-canvas--sheet" id="journal-canvas">
+          <div class="canvas-cards" id="canvas-cards"></div>
         </div>
 
         <nav class="canvas-actions">
@@ -50,6 +43,16 @@
           <button class="trip-tab trip-tab--primary" id="btn-save" type="button"><span>⇩</span>保存图片</button>
         </nav>
         <div class="safe-area"></div>
+
+        <!-- 生成中浮层 -->
+        <div class="loading-overlay hidden" id="loading-overlay">
+          <div class="loading-card">
+            <div class="loading-spinner"></div>
+            <p id="loading-text">正在生成手帐…</p>
+            <div class="loading-progress-bar"><span id="loading-progress-fill"></span></div>
+            <small id="loading-progress"></small>
+          </div>
+        </div>
       </div>
 
       <!-- 卡片详情视图 -->
@@ -87,14 +90,20 @@
         </nav>
         <div class="safe-area"></div>
 
-        <!-- 生成中浮层 -->
-        <div class="loading-overlay hidden" id="loading-overlay">
-          <div class="loading-card">
-            <div class="loading-spinner"></div>
-            <p id="loading-text">正在生成手帐…</p>
-            <small id="loading-progress"></small>
+      </div>
+
+      <div class="photo-popover hidden" id="photo-popover">
+        <button class="photo-popover-bg" id="photo-popover-bg" type="button" aria-label="关闭照片卡片"></button>
+        <article class="photo-popover-card">
+          <button class="photo-popover-close" id="photo-popover-close" type="button" aria-label="关闭">×</button>
+          <div class="photo-popover-image" id="photo-popover-image"></div>
+          <div class="photo-popover-content">
+            <span id="photo-popover-kicker"></span>
+            <h3 id="photo-popover-title"></h3>
+            <p id="photo-popover-text"></p>
+            <div class="photo-popover-tags" id="photo-popover-tags"></div>
           </div>
-        </div>
+        </article>
       </div>
 
     </div>
@@ -118,6 +127,6 @@
     </div>
   </div>
 
-  <script src="journal3.js"></script>
+  <script src="journal3.js?v=20"></script>
 </body>
 </html>
