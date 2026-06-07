@@ -7,6 +7,41 @@ const preferenceSets = {
   fun: ['剧本杀', '密室逃脱', '电竞', '美甲美睫', '户外攀岩'],
 };
 
+const LIVE_TRIP_RETURN_STATE_KEY = 'meituan_live_trip_return_state';
+
+function getSessionStorage() {
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) return window.sessionStorage;
+  } catch (error) {}
+  return null;
+}
+
+function readSessionValue(key) {
+  const storage = getSessionStorage();
+  if (!storage) return null;
+  try {
+    return storage.getItem(key);
+  } catch (error) {
+    return null;
+  }
+}
+
+function writeSessionValue(key, value) {
+  const storage = getSessionStorage();
+  if (!storage) return;
+  try {
+    storage.setItem(key, value);
+  } catch (error) {}
+}
+
+function removeSessionValue(key) {
+  const storage = getSessionStorage();
+  if (!storage) return;
+  try {
+    storage.removeItem(key);
+  } catch (error) {}
+}
+
 const state = {
   screen: '04',
   origin: null,
@@ -442,11 +477,12 @@ function parseStartupRoute() {
   const params = new URLSearchParams(window.location.search || '');
   const hash = (window.location.hash || '').replace(/^#/, '');
   const route = {};
-  const storedRoom = sessionStorage.getItem('meituan_room') || sessionStorage.getItem('vibe_roomCode');
-  const storedScreen = sessionStorage.getItem('meituan_return_screen');
+  const allowedScreens = new Set(['04','05','06','07','08','09','10','11','12','13','14','15','18','19']);
+  const storedRoom = readSessionValue('meituan_room') || readSessionValue('vibe_roomCode');
+  const storedScreen = readSessionValue('meituan_return_screen');
 
   if (params.get('room')) route.roomCode = params.get('room');
-  if (/^\d{4}$/.test(hash)) route.screen = hash;
+  if (allowedScreens.has(hash)) route.screen = hash;
   if (storedRoom && !route.roomCode) route.roomCode = storedRoom;
   if (storedScreen && !route.screen) route.screen = storedScreen;
 
@@ -459,7 +495,17 @@ function parseStartupRoute() {
     }
   }
 
-  if (storedScreen) sessionStorage.removeItem('meituan_return_screen');
+  const storedLiveTripState = readSessionValue(LIVE_TRIP_RETURN_STATE_KEY);
+  if (storedLiveTripState) {
+    try {
+      route.liveTripState = JSON.parse(storedLiveTripState);
+    } catch (error) {
+      console.warn('恢复实时行程快照失败', error);
+    }
+    removeSessionValue(LIVE_TRIP_RETURN_STATE_KEY);
+  }
+
+  if (storedScreen) removeSessionValue('meituan_return_screen');
   return route;
 }
 
@@ -471,17 +517,49 @@ function applyStartupRoute() {
   if (route.roomCode) {
     state.roomCode = route.roomCode;
     state.currentTripId = route.roomCode;
-    sessionStorage.setItem('meituan_room', route.roomCode);
-    sessionStorage.setItem('vibe_roomCode', route.roomCode);
+    writeSessionValue('meituan_room', route.roomCode);
+    writeSessionValue('vibe_roomCode', route.roomCode);
   }
   if (route.roomMode) state.roomMode = route.roomMode;
   if (route.screen && allowedScreens.has(route.screen)) state.screen = route.screen;
   if (state.screen === '13' || state.screen === '15') {
     state.tripStarted = true;
-    state.tripExecutionStarted = true;
+    state.tripExecutionStarted = false;
+  }
+
+  if (route.liveTripState) {
+    const snapshot = route.liveTripState;
+    if (snapshot.roomCode && !route.roomCode) {
+      state.roomCode = snapshot.roomCode;
+      state.currentTripId = snapshot.roomCode;
+      writeSessionValue('meituan_room', snapshot.roomCode);
+      writeSessionValue('vibe_roomCode', snapshot.roomCode);
+    }
+    if (Array.isArray(snapshot.selectedIds)) state.selectedIds = snapshot.selectedIds.slice();
+    if (Array.isArray(snapshot.routePlanSelected) && snapshot.routePlanSelected.length) {
+      state.routePlan = { ...(state.routePlan || {}), selected: snapshot.routePlanSelected.slice() };
+    }
+    if (Number.isInteger(snapshot.activeStopIndex)) state.activeStopIndex = snapshot.activeStopIndex;
+    if (Array.isArray(snapshot.completedStopIds)) state.completedStopIds = snapshot.completedStopIds.slice();
+    if (snapshot.origin) state.origin = snapshot.origin;
+    if (Array.isArray(snapshot.tripBarrage)) state.tripBarrage = snapshot.tripBarrage.slice();
+    if (snapshot.storeComments && typeof snapshot.storeComments === 'object') {
+      state.storeComments = snapshot.storeComments;
+    }
+    if (snapshot.navigation && typeof snapshot.navigation === 'object') {
+      state.navigation = { ...state.navigation, ...snapshot.navigation };
+    }
+    if (typeof snapshot.tripStarted === 'boolean') state.tripStarted = snapshot.tripStarted;
+    if (typeof snapshot.tripExecutionStarted === 'boolean') state.tripExecutionStarted = snapshot.tripExecutionStarted;
+    if (snapshot.currentTripId) state.currentTripId = snapshot.currentTripId;
   }
 
   return route;
+}
+
+function shouldSkipStartupWarmup(route = {}) {
+  if (!route.liveTripState) return false;
+  return route.screen === '13' || route.screen === '15';
 }
 
 async function hydrateStartupRoomData(route) {
@@ -490,7 +568,7 @@ async function hydrateStartupRoomData(route) {
     const room = await window.RoomApi.getRoom(route.roomCode);
     if (!room) return;
     state.currentMembers = room.members || [];
-    if (room.draft) {
+    if (room.draft && !(route.liveTripState?.routePlanSelected?.length)) {
       applySharedDraftState(room.draft);
       const pois = getSharedDraftPois();
       if (pois.length) {
@@ -517,6 +595,10 @@ async function bootstrap() {
     selectedCount: state.selectedIds.length,
     roomCode: state.roomCode,
   };
+
+  if (shouldSkipStartupWarmup(startupRoute)) {
+    return;
+  }
 
   try {
     state.origin = await resolveUserLocation();
@@ -1040,6 +1122,23 @@ function bindEvents() {
 
   el.openAlbum.addEventListener('click', () => {
     const tripId = state.roomCode || state.currentTripId || 'trip001';
+    const currentRoute = state.routePlan?.selected?.length
+      ? state.routePlan.selected
+      : state.selectedIds.map((id) => state.previewPoiPool?.find((p) => p.id === id) || getPoiById(id)).filter(Boolean);
+    writeSessionValue(LIVE_TRIP_RETURN_STATE_KEY, JSON.stringify({
+      roomCode: tripId,
+      currentTripId: state.currentTripId,
+      tripStarted: state.tripStarted,
+      tripExecutionStarted: state.tripExecutionStarted,
+      activeStopIndex: state.activeStopIndex,
+      completedStopIds: state.completedStopIds,
+      selectedIds: state.selectedIds,
+      routePlanSelected: currentRoute,
+      origin: state.origin,
+      tripBarrage: state.tripBarrage,
+      storeComments: state.storeComments,
+      navigation: state.navigation,
+    }));
     window.location.href = `journal/frontend/album/album.html?tripId=${tripId}&userName=${encodeURIComponent(state.myName || '我')}&returnTo=13`;
   });
 

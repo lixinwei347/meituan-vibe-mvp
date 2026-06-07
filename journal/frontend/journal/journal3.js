@@ -7,6 +7,31 @@
   var journalCover = null;
   var generationInFlight = false;
 
+  function getSessionStorage() {
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) return window.sessionStorage;
+    } catch (error) {}
+    return null;
+  }
+
+  function readSessionValue(key) {
+    var storage = getSessionStorage();
+    if (!storage) return null;
+    try {
+      return storage.getItem(key);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function writeSessionValue(key, value) {
+    var storage = getSessionStorage();
+    if (!storage) return;
+    try {
+      storage.setItem(key, value);
+    } catch (error) {}
+  }
+
   // ===== 画布拖拽 & 缩放 =====
   var canvasZoom = 0.58;
   var canvasPan = { x: 0, y: 0 };
@@ -117,6 +142,17 @@
     applyCanvasTransform();
   }
 
+  function centerCanvasInView(contentWidth, contentHeight) {
+    if (!el.canvasContainer) return;
+    var viewportWidth = el.canvasContainer.clientWidth || 390;
+    var viewportHeight = el.canvasContainer.clientHeight || 560;
+    canvasPan = {
+      x: Math.round((viewportWidth - contentWidth * canvasZoom) / 2),
+      y: Math.round((viewportHeight - contentHeight * canvasZoom) / 2),
+    };
+    applyCanvasTransform();
+  }
+
   function dist(a, b) { return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); }
 
   function startCanvasDrag(e) {
@@ -164,7 +200,7 @@
     var id = params.get('tripId');
     // 如果是默认值 trip001 且 URL 里没有显式传，尝试从 sessionStorage 恢复
     if (!id || id === 'trip001') {
-      var saved = sessionStorage.getItem('meituan_room');
+      var saved = readSessionValue('meituan_room');
       if (saved) return saved;
     }
     return id || 'trip001';
@@ -176,12 +212,22 @@
   }
 
   function mainAppUrl(screen) {
-    var base = window.location.hostname === 'localhost' ? '../../index.html' : '/meituan/index.html';
+    var base = window.location.hostname === 'localhost' ? '../../../index.html' : '/meituan/index.html';
     var suffix = screen ? '#' + encodeURIComponent(screen) : '';
-    sessionStorage.setItem('meituan_room', TRIP_ID);
-    sessionStorage.setItem('vibe_roomCode', TRIP_ID);
-    sessionStorage.setItem('meituan_return_screen', screen || '13');
+    writeSessionValue('meituan_room', TRIP_ID);
+    writeSessionValue('vibe_roomCode', TRIP_ID);
+    writeSessionValue('meituan_return_screen', screen || '13');
     return base + suffix;
+  }
+
+  function updateViewportScale() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (window.innerWidth <= 430) {
+      document.documentElement.style.setProperty('--app-scale', '1');
+      return;
+    }
+    var scale = Math.min((window.innerWidth - 32) / 390, (window.innerHeight - 32) / 844, 1);
+    document.documentElement.style.setProperty('--app-scale', String(Math.max(0.72, scale)));
   }
 
   function photoSrc(p) {
@@ -194,11 +240,14 @@
   }
 
   async function init() {
+    updateViewportScale();
+    window.addEventListener('resize', updateViewportScale);
+
     el.btnBack.addEventListener('click', function() {
       window.location.href = mainAppUrl(getReturnTo());
     });
     el.btnHome.addEventListener('click', function() {
-      window.location.href = (window.location.hostname === 'localhost' ? '../../index.html' : '/meituan/index.html');
+      window.location.href = (window.location.hostname === 'localhost' ? '../../../index.html' : '/meituan/index.html');
     });
     el.btnShare.addEventListener('click', handleShare);
     el.btnSave.addEventListener('click', handleSave);
@@ -523,6 +572,8 @@
 
   function renderCanvas() {
     if (!cards.length) {
+      if (el.canvasContainer) el.canvasContainer.classList.add('is-empty');
+      if (el.canvasCards) el.canvasCards.classList.add('is-empty');
       el.canvasCards.innerHTML = '<div class="canvas-empty">' +
         '<div class="canvas-empty-icon">📔</div>' +
         '<h3>空白画布</h3>' +
@@ -531,8 +582,13 @@
       '</div>';
       el.journalSubtitle.textContent = '等待第一张照片';
       el.journalTitle.textContent = TEMPLATES[currentTemplate].coverTitle;
+      canvasZoom = 0.58;
+      centerCanvasInView(700, 800);
       return;
     }
+
+    if (el.canvasContainer) el.canvasContainer.classList.remove('is-empty');
+    if (el.canvasCards) el.canvasCards.classList.remove('is-empty');
 
     var routeNames = getRouteHeadline();
     var memoLines = getMemoLines();

@@ -158,3 +158,11 @@ if (!app.includes('recommendationCache') || !app.includes('getRecommendationCach
 if (!html.includes('id="select-all-recommendations"') || !app.includes('toggleSelectAllRecommendations')) {
   throw new Error('Comprehensive recommendations should provide a one-click select-all action');
 }
+
+if (!app.includes('function shouldSkipStartupWarmup') || !app.includes('if (shouldSkipStartupWarmup(startupRoute))')) {
+  throw new Error('Bootstrap should explicitly skip startup warmup when returning from the album with a live trip snapshot');
+}
+
+if (app.includes("if (/^\\d{4}$/.test(hash)) route.screen = hash;")) {
+  throw new Error('Startup route parsing should recognize two-digit screen hashes like #13 instead of treating them as invalid');
+}

@@ -315,9 +315,91 @@ const mainFlow = await runScenario({
   },
 });
 
+const liveTripReturnFlow = await runScenario({
+  initScript: () => {
+    const route = [
+      { id: 'poi-1', name: '测试火锅', category: '美食', subCategory: '火锅', rating: 4.7, price: 96, distanceLabel: '800m', tags: ['热闹', '适合聚餐'], mood: 'yellow', lat: 39.905, lng: 116.391 },
+      { id: 'poi-2', name: '测试咖啡', category: '美食', subCategory: '咖啡', rating: 4.6, price: 38, distanceLabel: '1.2km', tags: ['安静', '聊天'], mood: 'mint', lat: 39.907, lng: 116.394 },
+    ];
+    window.__startupCounters = { geolocation: 0, recommendations: 0, routePlan: 0 };
+    window.sessionStorage.setItem('meituan_room', '8249');
+    window.sessionStorage.setItem('vibe_roomCode', '8249');
+    window.sessionStorage.setItem('meituan_live_trip_return_state', JSON.stringify({
+      roomCode: '8249',
+      currentTripId: 'trip-return-test',
+      tripStarted: true,
+      tripExecutionStarted: true,
+      activeStopIndex: 1,
+      completedStopIds: ['poi-1'],
+      selectedIds: route.map((poi) => poi.id),
+      routePlanSelected: route,
+      origin: { lat: 39.905, lng: 116.391, name: '当前位置' },
+      tripBarrage: ['测试弹幕'],
+      storeComments: { 'poi-2': ['继续下一站'] },
+      navigation: { active: false, stopId: null, mode: '', summary: null, status: 'idle' },
+    }));
+
+    Object.defineProperty(window, 'MockApi', {
+      configurable: true,
+      set(value) {
+        const wrapped = { ...value };
+        if (typeof value.getPoiRecommendations === 'function') {
+          wrapped.getPoiRecommendations = async (...args) => {
+            window.__startupCounters.recommendations += 1;
+            return value.getPoiRecommendations(...args);
+          };
+        }
+        if (typeof value.planRoute === 'function') {
+          wrapped.planRoute = async (...args) => {
+            window.__startupCounters.routePlan += 1;
+            return value.planRoute(...args);
+          };
+        }
+        Object.defineProperty(window, 'MockApi', {
+          value: wrapped,
+          writable: true,
+          configurable: true,
+        });
+      },
+      get() {
+        return undefined;
+      },
+    });
+
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition(success) {
+          window.__startupCounters.geolocation += 1;
+          success({
+            coords: {
+              latitude: 39.905,
+              longitude: 116.391,
+            },
+          });
+        },
+      },
+    });
+  },
+  run: async (page) => {
+    await page.goto(`${appUrl}#13`, { waitUntil: 'domcontentloaded' });
+    await page.waitForTimeout(1200);
+    await page.waitForFunction(() => Boolean(window.__mtVibeTestState && window.__mtVibeRender));
+    return page.evaluate(() => ({
+      counters: window.__startupCounters,
+      screen: window.__mtVibeTestState.screen,
+      tripExecutionStarted: window.__mtVibeTestState.tripExecutionStarted,
+      activeStopIndex: window.__mtVibeTestState.activeStopIndex,
+      completedStopIds: window.__mtVibeTestState.completedStopIds.slice(),
+      focusTitle: document.querySelector('.trip-stop--focus h3')?.textContent || null,
+      focusProgress: document.querySelector('.focus-progress')?.textContent || null,
+    }));
+  },
+});
+
 await browser.close();
 
-const result = { emptyState, mainFlow };
+const result = { emptyState, mainFlow, liveTripReturnFlow };
 console.log(JSON.stringify(result, null, 2));
 
 if (!emptyState.roomFailureToast?.includes('房间服务不可用') || emptyState.roomScreen !== '05') {
@@ -358,4 +440,10 @@ if (!mainFlow.activeStopNameBefore || !mainFlow.activeStopNameAfter || mainFlow.
 }
 if (mainFlow.notebookScreen !== '18' || mainFlow.notebookSheet !== 1) {
   throw new Error('Main flow should still render the notebook sheet after ending the trip');
+}
+if (liveTripReturnFlow.counters.geolocation !== 0 || liveTripReturnFlow.counters.recommendations !== 0 || liveTripReturnFlow.counters.routePlan !== 0) {
+  throw new Error('Returning from the album with a live trip snapshot should skip geolocation, recommendation, and route warmup work');
+}
+if (liveTripReturnFlow.screen !== '13' || !liveTripReturnFlow.tripExecutionStarted || liveTripReturnFlow.activeStopIndex !== 1) {
+  throw new Error('Returning from the album should preserve the in-progress live trip state');
 }

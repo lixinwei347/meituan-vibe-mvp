@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>共享相册</title>
-  <link rel="stylesheet" href="album.css?v=7" />
+  <link rel="stylesheet" href="album.css?v=8" />
 </head>
 <body>
   <div class="app-shell">
@@ -16,8 +16,7 @@
       <header class="trip-head">
         <button class="trip-back" aria-label="返回行程卡">‹</button>
         <h1>共享相册</h1>
-        <span class="album-user-tag" id="album-user-tag">👤 我</span>
-        <span class="photo-count" id="album-count">0张</span>
+        <button class="album-done" id="album-done" type="button">完成</button>
       </header>
 
       <div class="album-body">
@@ -89,15 +88,6 @@
     </div>
   </div>
 
-  <script src="album.js?v=18"></script>
-  <script>
-    // 显示当前用户身份
-    (function() {
-      var params = new URLSearchParams(window.location.search);
-      var name = params.get('userName') || '我';
-      var tag = document.getElementById('album-user-tag');
-      if (tag) tag.textContent = '👤 ' + name;
-    })();
-  </script>
+  <script src="album.js?v=19"></script>
 </body>
 </html>

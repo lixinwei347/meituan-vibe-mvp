@@ -115,6 +115,24 @@ button {
   font-weight: 900;
 }
 
+.album-done {
+  position: absolute;
+  right: 16px;
+  top: 24px;
+  height: 30px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.56);
+  color: #111;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.album-done:active {
+  opacity: 0.75;
+}
+
 .album-user-tag {
   position: absolute;
   left: 48px;
@@ -515,3 +533,22 @@ button {
   cursor: pointer;
 }
 .danmaku-send:active { opacity: .7; }
+
+@media (max-width: 430px) {
+  body {
+    padding: 0;
+    background: var(--shell);
+    overflow: hidden;
+  }
+
+  .app-shell {
+    width: 100vw;
+    height: 100dvh;
+  }
+
+  .phone {
+    border-radius: 0;
+    border: 0;
+    box-shadow: none;
+  }
+}

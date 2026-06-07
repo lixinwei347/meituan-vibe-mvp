@@ -169,7 +169,20 @@
     return '';
   }
 
+  function updateViewportScale() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (window.innerWidth <= 430) {
+      document.documentElement.style.setProperty('--app-scale', '1');
+      return;
+    }
+    var scale = Math.min((window.innerWidth - 32) / 390, (window.innerHeight - 32) / 844, 1);
+    document.documentElement.style.setProperty('--app-scale', String(Math.max(0.72, scale)));
+  }
+
   async function init() {
+    updateViewportScale();
+    window.addEventListener('resize', updateViewportScale);
+
     el.btnBack.addEventListener('click', function() {
       var base = window.location.hostname === 'localhost' ? '../../index.html' : '/meituan/index.html';
       window.location.href = base + '?room=' + encodeURIComponent(TRIP_ID) + '#13';

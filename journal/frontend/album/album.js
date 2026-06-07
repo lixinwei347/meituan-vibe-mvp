@@ -4,6 +4,31 @@
   const USER_NAME = getUserName();
   const POLL_INTERVAL = 3000; // 3 秒轮询
 
+  function getSessionStorage() {
+    try {
+      if (typeof window !== 'undefined' && window.sessionStorage) return window.sessionStorage;
+    } catch (error) {}
+    return null;
+  }
+
+  function readSessionValue(key) {
+    var storage = getSessionStorage();
+    if (!storage) return null;
+    try {
+      return storage.getItem(key);
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function writeSessionValue(key, value) {
+    var storage = getSessionStorage();
+    if (!storage) return;
+    try {
+      storage.setItem(key, value);
+    } catch (error) {}
+  }
+
   // 用于检测新照片
   let lastPhotoIds = new Set();
   let lastLikeCounts = {};
@@ -29,6 +54,7 @@
     danmakuLayer: document.getElementById('danmaku-stage'),
     previewCommentInput: document.getElementById('preview-comment-input'),
     previewCommentSend: document.getElementById('preview-comment-send'),
+    doneBtn: document.getElementById('album-done'),
   };
 
   // ===== URL 参数解析 =====
@@ -36,7 +62,7 @@
     var params = new URLSearchParams(window.location.search);
     var id = params.get('tripId');
     if (!id || id === 'trip001') {
-      var saved = sessionStorage.getItem('meituan_room');
+      var saved = readSessionValue('meituan_room');
       if (saved) return saved;
     }
     return id || 'trip001';
@@ -53,12 +79,22 @@
   }
 
   function goBackToMain() {
-    var base = window.location.hostname === 'localhost' ? '../../index.html' : '/meituan/index.html';
+    var base = window.location.hostname === 'localhost' ? '../../../index.html' : '/meituan/index.html';
     var returnTo = getReturnTo();
-    sessionStorage.setItem('meituan_room', TRIP_ID);
-    sessionStorage.setItem('vibe_roomCode', TRIP_ID);
-    sessionStorage.setItem('meituan_return_screen', returnTo);
+    writeSessionValue('meituan_room', TRIP_ID);
+    writeSessionValue('vibe_roomCode', TRIP_ID);
+    writeSessionValue('meituan_return_screen', returnTo);
     window.location.href = base + '#' + encodeURIComponent(returnTo);
+  }
+
+  function updateViewportScale() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (window.innerWidth <= 430) {
+      document.documentElement.style.setProperty('--app-scale', '1');
+      return;
+    }
+    var scale = Math.min((window.innerWidth - 32) / 390, (window.innerHeight - 32) / 844, 1);
+    document.documentElement.style.setProperty('--app-scale', String(Math.max(0.72, scale)));
   }
 
   // ===== API 调用 =====
@@ -151,9 +187,8 @@
 
   // ===== 初始化 =====
   async function init() {
-    // 显示用户身份
-    var tag = document.getElementById('album-user-tag');
-    if (tag) tag.textContent = '👤 ' + USER_NAME;
+    updateViewportScale();
+    window.addEventListener('resize', updateViewportScale);
 
     // 按钮绑定（null-safe）
     if (el.pickCard) {
@@ -172,6 +207,9 @@
     // 返回按钮 → 回到主应用，带上当前房间信息
     if (el.backBtn) {
       el.backBtn.addEventListener('click', goBackToMain);
+    }
+    if (el.doneBtn) {
+      el.doneBtn.addEventListener('click', goBackToMain);
     }
 
     // 预览浮层事件
@@ -308,7 +346,6 @@
   // ===== 渲染 =====
   function renderPhotos(photos) {
     currentPhotos = photos;
-    el.albumCount.textContent = photos.length + '张';
 
     if (!photos.length) {
       renderEmpty();
@@ -321,7 +358,6 @@
   }
 
   function renderEmpty() {
-    el.albumCount.textContent = '0张';
     el.photoGrid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted);font-size:14px;">📷<br>还没有照片<br>点击上方按钮上传第一张</div>';
   }
 
