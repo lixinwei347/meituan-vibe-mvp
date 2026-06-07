@@ -440,6 +440,23 @@ function syncLiveMapViewport() {
 async function bootstrap() {
   updateViewportScale();
   if (typeof window !== 'undefined') window.addEventListener('resize', updateViewportScale);
+
+  // 从独立页面跳回时恢复房间和页面状态
+  var params = new URLSearchParams(window.location.search);
+  var roomFromUrl = params.get('room');
+  if (roomFromUrl) {
+    state.roomCode = roomFromUrl;
+    state.currentTripId = roomFromUrl;
+    sessionStorage.setItem('meituan_room', roomFromUrl);
+  }
+  var hash = window.location.hash;
+  if (hash && /^#\d{2}$/.test(hash)) {
+    state.screen = hash.slice(1);
+  }
+  if (roomFromUrl || hash) {
+    window.history.replaceState(null, '', window.location.pathname);
+  }
+
   bindEvents();
   syncPreferenceModel();
   render();

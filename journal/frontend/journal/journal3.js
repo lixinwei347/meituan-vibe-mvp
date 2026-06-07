@@ -308,21 +308,16 @@
     }
 
     // 加载真实数据
-    var photos = [], stops = [], reviews = [], members = [], tripDate = '';
+    var photos = [], stops = [], reviews = [];
     var apiOk = false;
     try {
       var apiUrl = API + '/api/trips/' + TRIP_ID + '/journal?_=' + Date.now();
       var res = await fetch(apiUrl);
       if (res.ok) {
         var data = await res.json();
-        stops = (data.trip && data.trip.stops) || [];
-        members = (data.trip && data.trip.members) || [];
-        tripDate = (data.trip && data.trip.date) || '';
         photos = data.photos || [];
         reviews = data.reviews || [];
         apiOk = true;
-      } else {
-        console.warn('[journal] API error:', res.status);
       }
     } catch (e) {
       console.warn('[journal] API fetch failed:', e.message || e);
@@ -332,15 +327,21 @@
       try {
         var albumRes = await fetch(API + '/api/trips/' + TRIP_ID + '/photos?_=' + Date.now());
         if (albumRes.ok) { var ad = await albumRes.json(); photos = ad.photos || []; apiOk = true; }
-      } catch (e2) { console.warn('[journal] album API failed:', e2.message || e2); }
+      } catch (e2) {}
     }
     // 如果还没照片，用 mock 兜底
     if (!apiOk || !photos.length) {
-      console.warn('[journal] 使用 mock 数据, apiOk=' + apiOk + ', photos=' + photos.length);
-      photos = getMockPhotos(); stops = getMockStops(); reviews = getMockReviews(); members = getMockMembers();
+      photos = getMockPhotos();
+      reviews = getMockReviews();
     }
 
-    console.log('[journal] TRIP_ID=' + TRIP_ID + ' API=' + API + ' photos=' + photos.length);
+    // 从真实照片生成路线站（不用 mock 站点数据）
+    stops = photos.map(function(p, i) {
+      var name = p.title || p.uploaderName || p.uploader_name || '';
+      return { id: 'photo-' + i, name: name || ('第' + (i + 1) + '张'), price: '--', feature: p.uploaderName || p.uploader_name || '', tags: [] };
+    });
+
+    console.log('[journal] TRIP_ID=' + TRIP_ID + ' photos=' + photos.length + ' stops=' + stops.length);
 
     // 从真实照片生成路线（每条照片视为一站）
     if (!stops.length && photos.length) {
@@ -349,8 +350,8 @@
       });
     }
 
-    // 更新统计标题（显示 tripId 方便调试）
-    el.journalSubtitle.textContent = '房间 ' + TRIP_ID + ' · ' + photos.length + ' 张照片 · ' + stops.length + ' 站 · ' + reviews.length + ' 条评论';
+    // 更新统计标题
+    el.journalSubtitle.textContent = photos.length + ' 张照片' + (reviews.length ? ' · ' + reviews.length + ' 条评论' : '');
 
     // 初始模板主题
     if (el.canvasContainer) el.canvasContainer.classList.add('template-fresh');
