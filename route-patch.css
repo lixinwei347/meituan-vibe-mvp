@@ -161,54 +161,82 @@
 
 /* live current-stop card: keep real photos inside a stable frame */
 .trip-stop--focus {
-  padding: 14px;
-  gap: 14px;
+  flex: 0 0 auto;
+  padding: 14px 14px 12px;
+  gap: 12px;
   align-content: start;
+  border-color: rgba(255, 209, 0, 0.22);
+  box-shadow: 0 14px 28px rgba(56, 44, 24, 0.08);
+}
+
+.focus-main-card {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 26px;
+  background: linear-gradient(180deg, #fffdfa 0%, #ffffff 100%);
+  border: 1px solid rgba(255, 209, 0, 0.9);
+  overflow: hidden;
 }
 
 .trip-stop-focus-main {
-  gap: 14px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
 }
 
-.stop-photo--focus {
+.focus-hero-photo {
+  position: relative;
+  display: block;
   width: 100%;
-  height: auto;
-  min-height: 188px;
-  max-height: 220px;
-  aspect-ratio: 16 / 10;
+  height: 220px;
   border-radius: 22px;
   overflow: hidden;
   background: #f1ede4;
 }
 
-.stop-photo--focus.stop-photo--image img {
+.focus-hero-photo img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center;
+  object-position: center 34%;
 }
 
-.stop-photo--focus.stop-photo--image span {
+.focus-hero-badge {
+  position: absolute;
   left: 10px;
   bottom: 10px;
   padding: 5px 8px;
   font-size: 11px;
   background: rgba(17, 17, 17, 0.58);
+  color: #fff;
+  border-radius: 999px;
   backdrop-filter: blur(4px);
 }
 
-.stop-info--focus {
-  padding: 0 2px;
+.focus-hero-photo--fallback {
   display: grid;
-  gap: 6px;
+  place-items: center;
+  color: #8a5a00;
+  font-size: 14px;
+  font-weight: 900;
+  background: linear-gradient(180deg, #fff5d8 0%, #fff0b8 100%);
+}
+
+.stop-info--focus {
+  padding: 0 6px 2px;
+  display: grid;
+  gap: 5px;
   align-content: start;
 }
 
 .stop-info--focus h3 {
   margin: 0;
   font-size: 16px;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
+  line-height: 1.32;
+  letter-spacing: 0;
+  padding-top: 0;
 }
 
 .stop-info--focus .poi-meta,
@@ -219,34 +247,37 @@
 }
 
 .stop-info--focus .poi-meta {
-  font-size: 11px;
-  line-height: 1.35;
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 900;
 }
 
 .stop-info--focus .poi-tags {
-  font-size: 11px;
-  line-height: 1.35;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #6d6d6d;
 }
 
 .focus-stats {
-  gap: 6px 10px;
-  margin-top: 2px;
+  padding: 0 4px;
+  gap: 10px 10px;
+  margin-top: 0;
 }
 
 .focus-stats span {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
-  padding: 0 10px;
+  min-height: 28px;
+  padding: 0 14px;
   border-radius: 999px;
   background: #fff6df;
   color: #6f5a17;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 900;
 }
 
 .focus-comments {
-  margin-top: 2px;
+  margin-top: 0;
 }
 
 .focus-next-hint {
@@ -349,13 +380,17 @@
 }
 
 @media (max-width: 430px) {
-  .stop-photo--focus {
-    min-height: 168px;
-    max-height: 196px;
+  .stop-info--focus {
+    padding: 0 4px 2px;
+  }
+
+  .focus-hero-photo {
+    height: 196px;
   }
 
   .stop-info--focus h3 {
     font-size: 15px;
+    line-height: 1.36;
   }
 
   .trip-upnext--focus .trip-upnext-list {

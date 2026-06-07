@@ -713,7 +713,6 @@ function registerRoomWsListeners() {
     if (msg.members) {
       state.currentMembers = msg.members;
       render();
-      showToast(`${msg.member?.nickname || '新成员'} 加入了房间`);
     }
   });
 
@@ -1504,16 +1503,33 @@ function renderPoiVisual(poi, { className = 'poi-icon', fallbackText, badgeText,
   const mood = poi.mood || poiTone(poi);
   const label = badgeText || poi.subCategory || poi.category || fallbackText || '地点';
   const alt = escapeHtml(`${poi.name} 图片`);
+  const baseClasses = String(className).split(/\s+/).filter(Boolean);
+  const imageClasses = baseClasses.map((item) => `${item}--image`).join(' ');
   if (poi.photoUrl) {
     const safeUrl = escapeHtml(poi.photoUrl);
     return `
-      <div class="${className} ${className}--image ${mood}">
+      <div class="${baseClasses.join(' ')} ${imageClasses} ${mood}">
         <img src="${safeUrl}" alt="${alt}" loading="lazy" referrerpolicy="no-referrer" />
         ${showBadge && label ? `<span>${escapeHtml(label)}</span>` : ''}
       </div>
     `;
   }
   return `<div class="${className} ${mood}">${escapeHtml(fallbackText || label)}</div>`;
+}
+
+function renderFocusHeroPhoto(poi) {
+  const label = escapeHtml(poi.tags?.split(' · ')[0] || poi.subCategory || poi.category || '推荐');
+  if (poi.photoUrl) {
+    const safeUrl = escapeHtml(poi.photoUrl);
+    const alt = escapeHtml(`${poi.name} 图片`);
+    return `
+      <div class="focus-hero-photo">
+        <img src="${safeUrl}" alt="${alt}" loading="lazy" referrerpolicy="no-referrer" />
+        <span class="focus-hero-badge">${label}</span>
+      </div>
+    `;
+  }
+  return `<div class="focus-hero-photo focus-hero-photo--fallback">${escapeHtml(label)}</div>`;
 }
 
 function normalizeLiveStop(poi, index) {
@@ -1785,44 +1801,46 @@ function renderCurrentLiveStop(stop, index, stops) {
         <span class="focus-progress">第 ${index + 1}/${stops.length} 站</span>
       </div>
       <div class="trip-stop-focus-main">
-        ${renderPoiVisual(stop, { className: 'stop-photo stop-photo--focus', fallbackText: '图片', badgeText: stop.tags.split(' · ')[0] || '推荐', showBadge: true })}
+        ${renderFocusHeroPhoto(stop)}
         <div class="stop-info stop-info--focus">
           <h3>${stop.name}</h3>
           <p class="stop-feature poi-meta">${stop.meta}</p>
           <p class="stop-stats poi-tags">${stop.tags}</p>
-          <div class="focus-stats">
-            <span>评论 ${reviewCount} 条</span>
-            <span>${stop.sales}</span>
+        </div>
+      </div>
+      <div class="focus-detail-stack">
+        <div class="focus-stats">
+          <span>评论 ${reviewCount} 条</span>
+          <span>${stop.sales}</span>
+        </div>
+        <div class="focus-comments">
+          <strong>当前站评论</strong>
+          ${comments.map((comment) => `<p>• ${escapeHtml(comment)}</p>`).join('')}
+        </div>
+        ${navigationSummary ? `
+          <div class="navigation-summary">
+            <strong>${navigationSummary.modeLabel}导航中</strong>
+            <div class="navigation-summary-pills">
+              ${navigationSummary.distanceText ? `<span>${navigationSummary.distanceText}</span>` : ''}
+              ${navigationSummary.durationText ? `<span>${navigationSummary.durationText}</span>` : ''}
+              ${navigationSummary.costText ? `<span>${navigationSummary.costText}</span>` : ''}
+            </div>
+            ${navigationSummary.detailText ? `<p>${escapeHtml(navigationSummary.detailText)}</p>` : ''}
+          </div>
+        ` : ''}
+        <div class="trip-upnext trip-upnext--focus">
+          <strong>后续站点</strong>
+          <div class="trip-upnext-list">
+            ${stops.map((item, itemIndex) => `
+              <span class="trip-upnext-pill ${itemIndex === index ? 'is-active' : ''} ${state.completedStopIds.includes(item.id) ? 'is-done' : ''}">${itemIndex + 1}. ${escapeHtml(getShortStopName(item.name))}</span>
+            `).join('')}
           </div>
         </div>
-      </div>
-      <div class="focus-comments">
-        <strong>当前站评论</strong>
-        ${comments.map((comment) => `<p>• ${escapeHtml(comment)}</p>`).join('')}
-      </div>
-      ${navigationSummary ? `
-        <div class="navigation-summary">
-          <strong>${navigationSummary.modeLabel}导航中</strong>
-          <div class="navigation-summary-pills">
-            ${navigationSummary.distanceText ? `<span>${navigationSummary.distanceText}</span>` : ''}
-            ${navigationSummary.durationText ? `<span>${navigationSummary.durationText}</span>` : ''}
-            ${navigationSummary.costText ? `<span>${navigationSummary.costText}</span>` : ''}
-          </div>
-          ${navigationSummary.detailText ? `<p>${escapeHtml(navigationSummary.detailText)}</p>` : ''}
+        <div class="focus-next-hint">${nextStop ? `完成后将自动切换到下一站：${escapeHtml(nextStop.name)}` : '这是最后一站，完成后可直接结束行程'}</div>
+        <div class="focus-actions">
+          <button class="nav-chip nav-chip--wide" data-nav-stop="${stop.id}" type="button"><span>⌖</span>导航前往</button>
+          <button class="primary-btn trip-complete-btn" data-complete-stop="${stop.id}" type="button">行程完成</button>
         </div>
-      ` : ''}
-      <div class="trip-upnext trip-upnext--focus">
-        <strong>后续站点</strong>
-        <div class="trip-upnext-list">
-          ${stops.map((item, itemIndex) => `
-            <span class="trip-upnext-pill ${itemIndex === index ? 'is-active' : ''} ${state.completedStopIds.includes(item.id) ? 'is-done' : ''}">${itemIndex + 1}. ${escapeHtml(getShortStopName(item.name))}</span>
-          `).join('')}
-        </div>
-      </div>
-      <div class="focus-next-hint">${nextStop ? `完成后将自动切换到下一站：${escapeHtml(nextStop.name)}` : '这是最后一站，完成后可直接结束行程'}</div>
-      <div class="focus-actions">
-        <button class="nav-chip nav-chip--wide" data-nav-stop="${stop.id}" type="button"><span>⌖</span>导航前往</button>
-        <button class="primary-btn trip-complete-btn" data-complete-stop="${stop.id}" type="button">行程完成</button>
       </div>
     </article>
   `;
